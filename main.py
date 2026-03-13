@@ -6,6 +6,8 @@ import re
 import shutil
 import subprocess
 import sys
+import termios
+import tty
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -341,35 +343,67 @@ def normalize_rows(rows: list[dict]) -> list[dict]:
             best = column_best[index]
             normalized = round((score / best) * 100) if best > 0 else 0
             scores.append(normalized)
-        if len(scores) < TOTAL_ROUNDS:
-            scores.extend([None] * (TOTAL_ROUNDS - len(scores)))
-
-        valid_scores = [score for score in scores if score is not None]
-        removed_indices = worst_two_indices(scores)
-        removed = [scores[index] for index in removed_indices if scores[index] is not None]
-        kept = [score for index, score in enumerate(scores) if score is not None and index not in removed_indices]
-        avg = sum(kept) / len(kept)
-        raw_avg = sum(valid_scores) / len(valid_scores)
-
-        normalized_rows.append(
-            {
-                "name": row["name"],
-                "scores": scores,
-                "removed": removed,
-                "removed_indices": removed_indices,
-                "avg": avg,
-                "raw_avg": raw_avg,
-            }
-        )
+        normalized_rows.append(build_row(row["name"], scores, row.get("source_place", row.get("place"))))
 
     return finalize_rows(normalized_rows)
 
 
 def finalize_rows(rows: list[dict]) -> list[dict]:
-    rows.sort(key=lambda row: (-row["avg"], -row["raw_avg"], row["name"].lower()))
+    rows.sort(
+        key=lambda row: (
+            -(row["avg"] if row["avg"] is not None else -1),
+            -(row["raw_avg"] if row["raw_avg"] is not None else -1),
+            row.get("source_place", row.get("place", 10**9)),
+            row["name"].lower(),
+        )
+    )
     for index, row in enumerate(rows, start=1):
         row["place"] = index
     return rows
+
+
+def build_row(name: str, scores: list[int | None], source_place: int | None = None) -> dict:
+    padded_scores = scores[:TOTAL_ROUNDS]
+    if len(padded_scores) < TOTAL_ROUNDS:
+        padded_scores = padded_scores + [None] * (TOTAL_ROUNDS - len(padded_scores))
+
+    valid_scores = [score for score in padded_scores if score is not None]
+    raw_avg = (sum(valid_scores) / len(valid_scores)) if valid_scores else None
+
+    if len(valid_scores) >= 1:
+        removed_count = min(len(valid_scores), int((len(valid_scores) * 0.2) + 0.5))
+        removed_indices = worst_two_indices(padded_scores)[:removed_count]
+        removed = [padded_scores[index] for index in removed_indices if padded_scores[index] is not None]
+        kept = [score for index, score in enumerate(padded_scores) if score is not None and index not in removed_indices]
+        avg = sum(kept) / len(kept) if kept else None
+    else:
+        removed_indices = []
+        removed = []
+        avg = raw_avg
+
+    return {
+        "name": name,
+        "scores": padded_scores,
+        "removed": removed,
+        "removed_indices": removed_indices,
+        "avg": avg,
+        "raw_avg": raw_avg,
+        "source_place": source_place,
+    }
+
+
+def limit_rows(rows: list[dict], visible_rounds: int | None) -> list[dict]:
+    if visible_rounds is None:
+        return rows
+
+    limited_rows = []
+    for row in rows:
+        limited_scores = [
+            score if index < visible_rounds else None
+            for index, score in enumerate(row["scores"][:TOTAL_ROUNDS])
+        ]
+        limited_rows.append(build_row(row["name"], limited_scores, row.get("place")))
+    return finalize_rows(limited_rows)
 
 
 def parse_document_rows(document: str) -> list[dict]:
@@ -428,24 +462,8 @@ def parse_pasted_rows(document: str) -> list[dict]:
 
         scores_text = " ".join(score_parts)
         scores = [int(value) for value in re.findall(r"(\d+)\s*\([^)]*\)", scores_text)]
-        padded_scores: list[int | None] = scores[:TOTAL_ROUNDS]
-        if len(padded_scores) < TOTAL_ROUNDS:
-            padded_scores.extend([None] * (TOTAL_ROUNDS - len(padded_scores)))
-
         if len(scores) >= 3:
-            removed_indices = worst_two_indices(padded_scores)
-            removed = [padded_scores[index] for index in removed_indices if padded_scores[index] is not None]
-            kept = [score for index, score in enumerate(padded_scores) if score is not None and index not in removed_indices]
-            rows.append(
-                {
-                    "name": team_name,
-                    "scores": padded_scores,
-                    "removed": removed,
-                    "removed_indices": removed_indices,
-                    "avg": sum(kept) / len(kept),
-                    "raw_avg": sum(scores) / len(scores),
-                }
-            )
+            rows.append(build_row(team_name, scores))
 
         if total_line:
             i += 1
@@ -539,8 +557,12 @@ def needed_fill_score_normalized(scores: list[int | None], target_avg: float) ->
 def needed_values_for_rows(rows: list[dict], normalized: bool, keepaverage: bool) -> list[int | None]:
     if not rows:
         return []
+    if rows[0]["avg"] is None:
+        return [None] * len(rows)
 
     leader_fill = rows[0]["raw_avg"] if keepaverage else 0
+    if leader_fill is None:
+        leader_fill = 0
     target_avg = projected_avg(rows[0]["scores"], leader_fill)
     needed_values = [0]
     if normalized:
@@ -552,32 +574,42 @@ def needed_values_for_rows(rows: list[dict], normalized: bool, keepaverage: bool
     return needed_values
 
 
-def print_scoreboard(normalized: bool = False, relative: bool = False, keepaverage: bool = False) -> int:
+def load_display_rows(normalized: bool = False, visible_rounds: int | None = None) -> list[dict]:
+    rows = load_rows()
+    if not rows:
+        return []
+    rows = limit_rows(rows, visible_rounds)
+    if normalized:
+        rows = normalize_rows(rows)
+    return rows
+
+
+def print_scoreboard(
+    normalized: bool = False,
+    relative: bool = False,
+    keepaverage: bool = False,
+    visible_rounds: int | None = None,
+) -> int:
     clear_screen()
 
-    rows = load_rows()
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
     if not rows:
         if HTML_CACHE_FILE.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
         return 1
-    if normalized:
-        rows = normalize_rows(rows)
 
     max_name = max(len(row["name"]) for row in rows)
     max_runs = max(TOTAL_ROUNDS, max(len(row["scores"]) for row in rows))
     column_best = column_best_scores(rows)
+    visible_scores = [score for row in rows for score in row["scores"] if score is not None]
     score_width = max(
         3,
-        max(len(str(score)) for row in rows for score in row["scores"] if score is not None),
+        max((len(str(score)) for score in visible_scores), default=1),
     )
-    avg_width = max(3, max(len(str(round(row["avg"]))) for row in rows))
+    avg_width = max(3, max((len(str(round(row["avg"]))) for row in rows if row["avg"] is not None), default=1))
     needed_values = needed_values_for_rows(rows, normalized, keepaverage)
-    needed_width = max(
-        2,
-        max(len(str(value)) if value is not None else 1 for value in needed_values),
-    )
 
     for row, needed in zip(rows, needed_values):
         scores = []
@@ -594,43 +626,43 @@ def print_scoreboard(normalized: bool = False, relative: bool = False, keepavera
             scores.extend(f"{DIM}{'-':>{score_width}}{RESET}" for _ in range(max_runs - len(scores)))
         score_text = " ".join(scores)
         if relative:
-            if needed is None or row["avg"] == 0:
+            if needed is None or not row["avg"]:
                 needed_text = "-"
             else:
                 needed_text = f"{needed / row['avg']:.2f}"
         else:
             needed_text = "-" if needed is None else str(needed)
+        avg_text = "-" if row["avg"] is None else str(round(row["avg"]))
         print(
             f"{row['place']:>2}. "
             f"{BOLD}{row['name']:<{max_name}}{RESET} "
             f"{score_text} "
             f"  "
-            f"{BOLD}{round(row['avg']):>{avg_width}}{RESET} "
+            f"{BOLD}{avg_text:>{avg_width}}{RESET} "
             f"({DIM}+{needed_text}{RESET})"
         )
     return 0
 
 
-def print_bars(normalized: bool = False) -> int:
+def print_bars(normalized: bool = False, visible_rounds: int | None = None) -> int:
     clear_screen()
 
-    rows = load_rows()
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
     if not rows:
         if HTML_CACHE_FILE.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
         return 1
-    if normalized:
-        rows = normalize_rows(rows)
 
-    max_avg = max(row["avg"] for row in rows)
+    max_avg = max((row["avg"] or 0) for row in rows)
     heights = []
     colors = []
     for row in rows:
-        height = round((row["avg"] / max_avg) * BAR_HEIGHT) if max_avg else 0
-        heights.append(max(1, height) if row["avg"] > 0 else 0)
-        colors.append(heat_color(row["avg"], max_avg))
+        row_avg = row["avg"] or 0
+        height = round((row_avg / max_avg) * BAR_HEIGHT) if max_avg else 0
+        heights.append(max(1, height) if row_avg > 0 else 0)
+        colors.append(heat_color(row_avg, max_avg))
 
     for level in range(BAR_HEIGHT, 0, -1):
         parts = []
@@ -652,14 +684,76 @@ def print_bars(normalized: bool = False) -> int:
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [--refresh] [--bars] [--normalized] [--relative] [--keepaverage] [--help]")
+    print(
+        "python3 main.py [--refresh] [--bars] [--normalized] [--relative] "
+        "[--keepaverage] [--animate] [--help]"
+    )
     print()
     print("--refresh     paste scoreboard text, then ctrl-d")
     print("--bars        show bar view")
     print("--normalized  normalize each round to the best score in that round")
     print("--relative    show +needed divided by average_without_strikes")
     print("--keepaverage use leader raw average over known runs for missing runs in +needed target")
+    print("--animate     step visible rounds with left/right until q")
     print("--help        show this help")
+    return 0
+
+
+def read_animation_key() -> str | None:
+    first = sys.stdin.buffer.read(1)
+    if not first:
+        return "q"
+    if first in {b"q", b"Q"}:
+        return "q"
+    if first == b"\x1b":
+        second = sys.stdin.buffer.read(1)
+        if second != b"[":
+            return None
+        third = sys.stdin.buffer.read(1)
+        if third == b"C":
+            return "right"
+        if third == b"D":
+            return "left"
+    return None
+
+
+def animate_view(normalized: bool = False, relative: bool = False, keepaverage: bool = False, bars: bool = False) -> int:
+    rows = load_rows()
+    if not rows:
+        clear_screen()
+        if HTML_CACHE_FILE.exists():
+            print(f"{RED}no scoreboard found in cached page{RESET}")
+            return 1
+        print(f"{RED}missing score data{RESET}")
+        return 1
+
+    visible_rounds = 0
+    stdin_fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(stdin_fd)
+    try:
+        tty.setcbreak(stdin_fd)
+        while True:
+            command = [sys.executable, __file__]
+            if bars:
+                command.append("--bars")
+            if normalized:
+                command.append("--normalized")
+            if relative:
+                command.append("--relative")
+            if keepaverage:
+                command.append("--keepaverage")
+            command.extend(["--visible-rounds", str(visible_rounds)])
+            subprocess.run(command, check=False)
+            key = read_animation_key()
+            if key == "q":
+                break
+            if key == "right":
+                visible_rounds = min(TOTAL_ROUNDS, visible_rounds + 1)
+            elif key == "left":
+                visible_rounds = max(0, visible_rounds - 1)
+    finally:
+        termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
+        clear_screen()
     return 0
 
 
@@ -668,15 +762,37 @@ def main() -> int:
     normalized = "--normalized" in args
     relative = "--relative" in args
     keepaverage = "--keepaverage" in args
+    animate = "--animate" in args
+    visible_rounds = None
+
+    if "--visible-rounds" in args:
+        index = args.index("--visible-rounds")
+        try:
+            visible_rounds = max(0, min(TOTAL_ROUNDS, int(args[index + 1])))
+        except (IndexError, ValueError):
+            print(f"{RED}invalid visible rounds{RESET}")
+            return 1
 
     if "--help" in args:
         return print_help()
     if "--refresh" in args:
         return refresh_document()
+    if animate:
+        return animate_view(
+            normalized=normalized,
+            relative=relative,
+            keepaverage=keepaverage,
+            bars="--bars" in args,
+        )
     if "--bars" in args:
-        return print_bars(normalized=normalized)
+        return print_bars(normalized=normalized, visible_rounds=visible_rounds)
 
-    return print_scoreboard(normalized=normalized, relative=relative, keepaverage=keepaverage)
+    return print_scoreboard(
+        normalized=normalized,
+        relative=relative,
+        keepaverage=keepaverage,
+        visible_rounds=visible_rounds,
+    )
 
 
 if __name__ == "__main__":
