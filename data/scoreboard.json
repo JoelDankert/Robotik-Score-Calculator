@@ -1,0 +1,447 @@
+{
+  "version": 2,
+  "rows": [
+    {
+      "name": "RRR Kabelmüsli",
+      "scores": [
+        395,
+        320,
+        450,
+        455,
+        640,
+        555,
+        460,
+        575,
+        null,
+        null
+      ],
+      "removed": [
+        320,
+        395
+      ],
+      "removed_indices": [
+        1,
+        0
+      ],
+      "avg": 522.5,
+      "raw_avg": 481.25,
+      "place": 1
+    },
+    {
+      "name": "Bodensee Dogs",
+      "scores": [
+        380,
+        560,
+        85,
+        355,
+        410,
+        280,
+        550,
+        475,
+        null,
+        null
+      ],
+      "removed": [
+        85,
+        280
+      ],
+      "removed_indices": [
+        2,
+        5
+      ],
+      "avg": 455.0,
+      "raw_avg": 386.875,
+      "place": 2
+    },
+    {
+      "name": "Bodensee Beavers",
+      "scores": [
+        325,
+        265,
+        100,
+        320,
+        290,
+        275,
+        450,
+        290,
+        null,
+        null
+      ],
+      "removed": [
+        100,
+        265
+      ],
+      "removed_indices": [
+        2,
+        1
+      ],
+      "avg": 325.0,
+      "raw_avg": 289.375,
+      "place": 3
+    },
+    {
+      "name": "photon",
+      "scores": [
+        380,
+        295,
+        315,
+        315,
+        85,
+        360,
+        100,
+        100,
+        null,
+        null
+      ],
+      "removed": [
+        85,
+        100
+      ],
+      "removed_indices": [
+        4,
+        6
+      ],
+      "avg": 294.1666666666667,
+      "raw_avg": 243.75,
+      "place": 4
+    },
+    {
+      "name": "Theseus",
+      "scores": [
+        120,
+        205,
+        160,
+        95,
+        395,
+        205,
+        250,
+        305,
+        null,
+        null
+      ],
+      "removed": [
+        95,
+        120
+      ],
+      "removed_indices": [
+        3,
+        0
+      ],
+      "avg": 253.33333333333334,
+      "raw_avg": 216.875,
+      "place": 5
+    },
+    {
+      "name": "WvSG_Wall·E",
+      "scores": [
+        215,
+        240,
+        320,
+        190,
+        260,
+        140,
+        230,
+        245,
+        null,
+        null
+      ],
+      "removed": [
+        140,
+        190
+      ],
+      "removed_indices": [
+        5,
+        3
+      ],
+      "avg": 251.66666666666666,
+      "raw_avg": 230.0,
+      "place": 6
+    },
+    {
+      "name": "Skarlax",
+      "scores": [
+        50,
+        15,
+        95,
+        190,
+        55,
+        70,
+        210,
+        185,
+        null,
+        null
+      ],
+      "removed": [
+        15,
+        50
+      ],
+      "removed_indices": [
+        1,
+        0
+      ],
+      "avg": 134.16666666666666,
+      "raw_avg": 108.75,
+      "place": 7
+    },
+    {
+      "name": "anagroM_ataF",
+      "scores": [
+        90,
+        10,
+        95,
+        60,
+        95,
+        20,
+        155,
+        15,
+        null,
+        null
+      ],
+      "removed": [
+        10,
+        15
+      ],
+      "removed_indices": [
+        1,
+        7
+      ],
+      "avg": 85.83333333333333,
+      "raw_avg": 67.5,
+      "place": 8
+    },
+    {
+      "name": "TTC Demo",
+      "scores": [
+        60,
+        60,
+        85,
+        35,
+        45,
+        70,
+        65,
+        80,
+        null,
+        null
+      ],
+      "removed": [
+        35,
+        45
+      ],
+      "removed_indices": [
+        3,
+        4
+      ],
+      "avg": 70.0,
+      "raw_avg": 62.5,
+      "place": 9
+    },
+    {
+      "name": "robOtter",
+      "scores": [
+        35,
+        30,
+        40,
+        95,
+        40,
+        10,
+        80,
+        110,
+        null,
+        null
+      ],
+      "removed": [
+        10,
+        30
+      ],
+      "removed_indices": [
+        5,
+        1
+      ],
+      "avg": 66.66666666666667,
+      "raw_avg": 55.0,
+      "place": 10
+    },
+    {
+      "name": "Käpt'n Balu",
+      "scores": [
+        65,
+        40,
+        85,
+        45,
+        35,
+        30,
+        65,
+        55,
+        null,
+        null
+      ],
+      "removed": [
+        30,
+        35
+      ],
+      "removed_indices": [
+        5,
+        4
+      ],
+      "avg": 59.166666666666664,
+      "raw_avg": 52.5,
+      "place": 11
+    },
+    {
+      "name": "Try-Tanic",
+      "scores": [
+        85,
+        15,
+        15,
+        95,
+        50,
+        30,
+        45,
+        50,
+        null,
+        null
+      ],
+      "removed": [
+        15,
+        15
+      ],
+      "removed_indices": [
+        1,
+        2
+      ],
+      "avg": 59.166666666666664,
+      "raw_avg": 48.125,
+      "place": 12
+    },
+    {
+      "name": "2legit2quit",
+      "scores": [
+        95,
+        15,
+        10,
+        30,
+        40,
+        40,
+        40,
+        70,
+        null,
+        null
+      ],
+      "removed": [
+        10,
+        15
+      ],
+      "removed_indices": [
+        2,
+        1
+      ],
+      "avg": 52.5,
+      "raw_avg": 42.5,
+      "place": 13
+    },
+    {
+      "name": "Ich muss überlegen",
+      "scores": [
+        80,
+        45,
+        10,
+        55,
+        25,
+        25,
+        25,
+        15,
+        null,
+        null
+      ],
+      "removed": [
+        10,
+        15
+      ],
+      "removed_indices": [
+        2,
+        7
+      ],
+      "avg": 42.5,
+      "raw_avg": 35.0,
+      "place": 14
+    },
+    {
+      "name": "i-bots 8",
+      "scores": [
+        0,
+        15,
+        10,
+        20,
+        20,
+        40,
+        75,
+        80,
+        null,
+        null
+      ],
+      "removed": [
+        0,
+        10
+      ],
+      "removed_indices": [
+        0,
+        2
+      ],
+      "avg": 41.666666666666664,
+      "raw_avg": 32.5,
+      "place": 15
+    },
+    {
+      "name": "DBG-Maze",
+      "scores": [
+        30,
+        10,
+        25,
+        30,
+        25,
+        10,
+        25,
+        10,
+        null,
+        null
+      ],
+      "removed": [
+        10,
+        10
+      ],
+      "removed_indices": [
+        1,
+        5
+      ],
+      "avg": 24.166666666666668,
+      "raw_avg": 20.625,
+      "place": 16
+    },
+    {
+      "name": "Ctrl+Alt+Defeat",
+      "scores": [
+        0,
+        15,
+        0,
+        10,
+        25,
+        15,
+        20,
+        20,
+        null,
+        null
+      ],
+      "removed": [
+        0,
+        0
+      ],
+      "removed_indices": [
+        0,
+        2
+      ],
+      "avg": 17.5,
+      "raw_avg": 13.125,
+      "place": 17
+    }
+  ]
+}
