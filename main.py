@@ -33,6 +33,7 @@ BOLD = "\033[1m"
 DIM = "\033[2m"
 RED = "\033[31m"
 GREEN = "\033[32m"
+UNDERLINE = "\033[4m"
 STRIKE = "\033[9m"
 
 TOTAL_ROUNDS = 10
@@ -230,8 +231,37 @@ def load_document(entry: bool = False) -> str:
     return html_cache_file.read_text(encoding="utf-8", errors="ignore")
 
 
+def parse_json_score(value: object) -> tuple[int | None, bool]:
+    if value is None:
+        return None, False
+    if isinstance(value, int):
+        return value, False
+    if isinstance(value, str):
+        text = value.strip()
+        unsure = text.endswith("?")
+        if unsure:
+            text = text[:-1].strip()
+        return int(text), unsure
+    raise ValueError("invalid score")
+
+
+def encode_json_score(score: int | None, unsure: bool) -> int | str | None:
+    if score is None:
+        return None
+    if unsure:
+        return f"{score}?"
+    return score
+
+
 def save_rows(rows: list[dict], entry: bool = False) -> None:
-    raw_rows = [{"name": row["name"], "scores": row["scores"][:TOTAL_ROUNDS]} for row in rows]
+    raw_rows = []
+    for row in rows:
+        unsure_indices = set(row.get("unsure_indices", []))
+        scores = [
+            encode_json_score(score, index in unsure_indices)
+            for index, score in enumerate(row["scores"][:TOTAL_ROUNDS])
+        ]
+        raw_rows.append({"name": row["name"], "scores": scores})
     _, json_cache_file = cache_files(entry)
     json_cache_file.write_text(
         json.dumps({"version": CACHE_VERSION, "rows": raw_rows}, ensure_ascii=False, indent=2),
@@ -263,10 +293,16 @@ def load_json_rows(entry: bool = False) -> list[dict]:
             raw_scores = item["scores"]
             if not isinstance(raw_scores, list):
                 continue
-            scores = [int(value) if value is not None else None for value in raw_scores]
+            scores = []
+            unsure_indices = []
+            for index, value in enumerate(raw_scores):
+                score, unsure = parse_json_score(value)
+                scores.append(score)
+                if unsure:
+                    unsure_indices.append(index)
         except (KeyError, TypeError, ValueError):
             continue
-        rows.append(build_row(name, scores))
+        rows.append(build_row(name, scores, unsure_indices=unsure_indices))
     return finalize_rows(rows)
 
 
@@ -377,7 +413,14 @@ def normalize_rows(rows: list[dict]) -> list[dict]:
             best = column_best[index]
             normalized = round((score / best) * 100) if best > 0 else 0
             scores.append(normalized)
-        normalized_rows.append(build_row(row["name"], scores, row.get("source_place", row.get("place"))))
+        normalized_rows.append(
+            build_row(
+                row["name"],
+                scores,
+                row.get("source_place", row.get("place")),
+                row.get("unsure_indices", []),
+            )
+        )
 
     return finalize_rows(normalized_rows)
 
@@ -396,10 +439,18 @@ def finalize_rows(rows: list[dict]) -> list[dict]:
     return rows
 
 
-def build_row(name: str, scores: list[int | None], source_place: int | None = None) -> dict:
+def build_row(
+    name: str,
+    scores: list[int | None],
+    source_place: int | None = None,
+    unsure_indices: list[int] | None = None,
+) -> dict:
     padded_scores = scores[:TOTAL_ROUNDS]
     if len(padded_scores) < TOTAL_ROUNDS:
         padded_scores = padded_scores + [None] * (TOTAL_ROUNDS - len(padded_scores))
+    valid_unsure_indices = sorted(
+        index for index in (unsure_indices or []) if 0 <= index < len(padded_scores) and padded_scores[index] is not None
+    )
 
     valid_scores = [score for score in padded_scores if score is not None]
     raw_avg = (sum(valid_scores) / len(valid_scores)) if valid_scores else None
@@ -422,6 +473,7 @@ def build_row(name: str, scores: list[int | None], source_place: int | None = No
         "avg": avg,
         "raw_avg": raw_avg,
         "source_place": source_place,
+        "unsure_indices": valid_unsure_indices,
     }
 
 
@@ -435,7 +487,14 @@ def limit_rows(rows: list[dict], visible_rounds: int | None) -> list[dict]:
             score if index < visible_rounds else None
             for index, score in enumerate(row["scores"][:TOTAL_ROUNDS])
         ]
-        limited_rows.append(build_row(row["name"], masked_scores, row.get("source_place", row.get("place"))))
+        limited_rows.append(
+            build_row(
+                row["name"],
+                masked_scores,
+                row.get("source_place", row.get("place")),
+                [index for index in row.get("unsure_indices", []) if index < visible_rounds],
+            )
+        )
     return finalize_rows(limited_rows)
 
 
@@ -667,7 +726,6 @@ def load_display_rows(
 
 def print_scoreboard(
     normalized: bool = False,
-    relative: bool = False,
     keepaverage: bool = False,
     entry: bool = False,
     visible_rounds: int | None = None,
@@ -694,7 +752,40 @@ def print_scoreboard(
     )
     avg_width = max(3, max((len(str(round(row["avg"]))) for row in rows if row["avg"] is not None), default=1))
     needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place)
+    abs_width = max(
+        3,
+        max((len(str(needed)) for needed in needed_values if needed is not None), default=1),
+    )
+    relative_width = max(
+        4,
+        max(
+            (
+                len(
+                    "0%"
+                    if needed == 0 and index == min(max(1, target_place), len(rows)) - 1
+                    else (
+                        "/"
+                        if needed is None or not row["avg"]
+                        else f"{round((needed / row['avg']) * 100) - 100}%"
+                    )
+                )
+                for index, (row, needed) in enumerate(zip(rows, needed_values))
+            ),
+            default=2,
+        ),
+    )
+    spread_width = max(3, max((len(sigma_text(row["scores"])) for row in rows), default=2))
     target_index = min(max(1, target_place), len(rows)) - 1
+    score_headers = " ".join(f"{index:>{score_width}}" for index in range(1, max_runs + 1))
+    left_pad = " " * (max_name + 4)
+    print(
+        f"{left_pad}{score_headers}  "
+        f"{BOLD}{'A':>{avg_width}}{RESET}  "
+        f" {BOLD}{'B':>{abs_width}}{RESET} "
+        f"{BOLD}{'C':>{relative_width}}{RESET} "
+        f"{BOLD}{'D':>{spread_width}}{RESET}"
+    )
+    print()
 
     for row_index, (row, needed) in enumerate(zip(rows, needed_values)):
         has_visible_scores = any(score is not None for score in row["scores"])
@@ -704,31 +795,19 @@ def print_scoreboard(
                 scores.append(f"{DIM}{'/':>{score_width}}{RESET}")
                 continue
             color = heat_color(score, heat_max)
+            style = UNDERLINE if score_index in row.get("unsure_indices", []) else ""
             if score_index in row.get("removed_indices", []):
-                scores.append(f"{color}{STRIKE}{score:>{score_width}}{RESET}")
+                scores.append(f"{color}{style}{STRIKE}{score:>{score_width}}{RESET}")
             else:
-                scores.append(f"{color}{score:>{score_width}}{RESET}")
+                scores.append(f"{color}{style}{score:>{score_width}}{RESET}")
         if len(scores) < max_runs:
             scores.extend(f"{DIM}{'/':>{score_width}}{RESET}" for _ in range(max_runs - len(scores)))
         score_text = " ".join(scores)
         if not has_visible_scores:
             needed_text = "/"
             relative_text = "/"
-        elif relative:
-            if needed is None or not row["avg"]:
-                needed_text = "/"
-            elif needed == 0 and row_index == target_index:
-                needed_text = "0%"
-            else:
-                relative_percent = round((needed / row["avg"]) * 100) - 100
-                needed_text = f"{relative_percent}%"
-            relative_text = needed_text
         else:
-            if row_index == target_index:
-                target_value = row["avg"] if normalized else row["raw_avg"]
-                needed_text = "/" if target_value is None else str(round(target_value))
-            else:
-                needed_text = "/" if needed is None else str(needed)
+            needed_text = "/" if needed is None else str(needed)
             if needed is None or not row["avg"]:
                 relative_text = "/"
             elif needed == 0 and row_index == target_index:
@@ -736,12 +815,6 @@ def print_scoreboard(
             else:
                 relative_percent = round((needed / row["avg"]) * 100) - 100
                 relative_text = f"{relative_percent}%"
-        if needed_text in {"0", "0%"}:
-            needed_prefix = ""
-        elif needed_text.startswith("-") or needed_text == "/":
-            needed_prefix = ""
-        else:
-            needed_prefix = "+"
         if relative_text == "/":
             needed_color = f"{DIM}{RED}"
         elif relative_text in {"0", "0%"}:
@@ -758,8 +831,19 @@ def print_scoreboard(
             f"{score_text} "
             f"  "
             f"{BOLD}{avg_text:>{avg_width}}{RESET} "
-            f"({needed_color}{needed_prefix}{needed_text}{RESET} {DIM}{spread_text}{RESET})"
+            f"  {needed_color}({needed_text:>{abs_width}} {relative_text:>{relative_width}} {RESET}"
+            f"{DIM}{spread_text:>{spread_width}}{RESET}{needed_color}){RESET}"
         )
+    score_kind = "normalized " if normalized else ""
+    target_assumption = "keep their raw avg" if keepaverage else "fail all runs fully"
+    print()
+    print(f"{BOLD}A{RESET} - current average with strikes")
+    print(
+        f"{BOLD}B{RESET} - needed {score_kind}scores to reach place {target_place} "
+        f"if they {target_assumption}"
+    )
+    print(f"{BOLD}C{RESET} - relative needed improvement")
+    print(f"{BOLD}D{RESET} - score spread")
     print_end_spacing()
     return 0
 
@@ -921,7 +1005,7 @@ def print_pie(normalized: bool = False, visible_rounds: int | None = None, entry
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--relative] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("refresh     same as --refresh")
     print("--refresh   paste scoreboard, ctrl-d")
@@ -930,7 +1014,6 @@ def print_help() -> int:
     print("--block     30x30 share block")
     print("--pie       round share pie")
     print("--normalized normalized mode")
-    print("--relative  relative needed value")
     print("--assumebad leader missing runs = 0")
     print("--to N      target place N")
     print("--animate   left/right, q quits")
@@ -959,7 +1042,6 @@ def read_animation_key() -> str | None:
 
 def animate_view(
     normalized: bool = False,
-    relative: bool = False,
     keepaverage: bool = False,
     entry: bool = False,
     bars: bool = False,
@@ -992,8 +1074,6 @@ def animate_view(
                 command.append("--pie")
             if normalized:
                 command.append("--normalized")
-            if relative:
-                command.append("--relative")
             if not keepaverage:
                 command.append("--assumebad")
             if entry:
@@ -1018,7 +1098,6 @@ def animate_view(
 def main() -> int:
     args = sys.argv[1:]
     normalized = "--normalized" in args
-    relative = "--relative" in args
     keepaverage = "--assumebad" not in args
     animate = "--animate" in args
     entry = "--entry" in args
@@ -1049,7 +1128,6 @@ def main() -> int:
     if animate:
         return animate_view(
             normalized=normalized,
-            relative=relative,
             keepaverage=keepaverage,
             entry=entry,
             bars="--bars" in args,
@@ -1066,7 +1144,6 @@ def main() -> int:
 
     return print_scoreboard(
         normalized=normalized,
-        relative=relative,
         keepaverage=keepaverage,
         entry=entry,
         visible_rounds=visible_rounds,
