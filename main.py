@@ -783,10 +783,10 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None, entr
     for row in rows:
         row_avg = row["avg"] or 0
         height = round((row_avg / max_avg) * BAR_HEIGHT) if max_avg else 0
-        heights.append(max(1, height) if row_avg > 0 else 0)
+        heights.append(max(0, height - 1))
         colors.append(team_color(color_map[row["name"]]))
 
-    for level in range(BAR_HEIGHT, 0, -1):
+    for level in range(BAR_HEIGHT - 1, 0, -1):
         parts = []
         for height, color in zip(heights, colors):
             if height >= level:
@@ -795,6 +795,7 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None, entr
                 parts.append(" " * BAR_WIDTH)
         print((" " * BAR_GAP).join(parts))
 
+    print((" " * BAR_GAP).join(f"{color}{BAR_FILL}{RESET}" for color in colors))
     print(f"{DIM}{(' ' * BAR_GAP).join('▀' * BAR_WIDTH for _ in rows)}{RESET}")
     print((" " * BAR_GAP).join(f"{row['place']:^{BAR_WIDTH}}" for row in rows))
     print()
@@ -917,7 +918,7 @@ def print_pie(normalized: bool = False, visible_rounds: int | None = None, entry
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--absolute] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--relative] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("refresh     same as --refresh")
     print("--refresh   paste scoreboard, ctrl-d")
@@ -926,7 +927,7 @@ def print_help() -> int:
     print("--block     30x30 share block")
     print("--pie       round share pie")
     print("--normalized normalized mode")
-    print("--absolute  raw needed value")
+    print("--relative  relative needed value")
     print("--assumebad leader missing runs = 0")
     print("--to N      target place N")
     print("--animate   left/right, q quits")
@@ -1014,7 +1015,7 @@ def animate_view(
 def main() -> int:
     args = sys.argv[1:]
     normalized = "--normalized" in args
-    relative = "--absolute" not in args
+    relative = "--relative" in args
     keepaverage = "--assumebad" not in args
     animate = "--animate" in args
     entry = "--entry" in args
