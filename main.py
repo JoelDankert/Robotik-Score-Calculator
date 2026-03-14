@@ -835,14 +835,14 @@ def print_scoreboard(
             f"{DIM}{spread_text:>{spread_width}}{RESET}{needed_color}){RESET}"
         )
     score_kind = "normalized " if normalized else ""
-    target_assumption = "keep their raw avg" if keepaverage else "fail all runs fully"
+    target_assumption = "keep their raw average" if keepaverage else "fail all runs fully"
     print()
     print(f"{BOLD}A{RESET} - current average with strikes")
     print(
-        f"{BOLD}B{RESET} - needed {score_kind}scores to reach place {target_place} "
+        f"{BOLD}B{RESET} - needed {score_kind}scores to place {target_place} "
         f"if they {target_assumption}"
     )
-    print(f"{BOLD}C{RESET} - relative needed improvement")
+    print(f"{BOLD}C{RESET} - relative needed improvement from raw average")
     print(f"{BOLD}D{RESET} - score spread")
     print_end_spacing()
     return 0
