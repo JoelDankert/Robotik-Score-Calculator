@@ -23,6 +23,8 @@ URL = (
 CACHE_DIR = Path("data")
 HTML_CACHE_FILE = CACHE_DIR / "robocup_page.html"
 JSON_CACHE_FILE = CACHE_DIR / "scoreboard.json"
+ENTRY_HTML_CACHE_FILE = CACHE_DIR / "robocup_entry_page.html"
+ENTRY_JSON_CACHE_FILE = CACHE_DIR / "scoreboard_entry.json"
 RENDER_SCRIPT = Path("render_dom.mjs")
 CACHE_VERSION = 3
 
@@ -124,6 +126,19 @@ def print_end_spacing() -> None:
     print("\n" * 3, end="")
 
 
+def short_name(name: str) -> str:
+    parts = [part for part in re.split(r"[^0-9A-Za-z]+", name.strip()) if part]
+    if len(parts) >= 2:
+        return "".join(part[0] for part in parts)
+    return name[:3]
+
+
+def cache_files(entry: bool = False) -> tuple[Path, Path]:
+    if entry:
+        return ENTRY_HTML_CACHE_FILE, ENTRY_JSON_CACHE_FILE
+    return HTML_CACHE_FILE, JSON_CACHE_FILE
+
+
 def browser_path() -> str | None:
     for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
         path = shutil.which(name)
@@ -140,9 +155,10 @@ def node_path() -> str | None:
     return None
 
 
-def refresh_document() -> int:
+def refresh_document(entry: bool = False) -> int:
     clear_screen()
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    html_cache_file, _ = cache_files(entry)
 
     pasted = ""
     if not sys.stdin.isatty():
@@ -156,12 +172,12 @@ def refresh_document() -> int:
             print()
             return 1
     if pasted.strip():
-        HTML_CACHE_FILE.write_text(pasted, encoding="utf-8")
+        html_cache_file.write_text(pasted, encoding="utf-8")
         rows = parse_document_rows(pasted)
         if not rows:
             print(f"{RED}saved pasted data, but could not parse scoreboard{RESET}")
             return 1
-        save_rows(rows)
+        save_rows(rows, entry=entry)
         return 0
 
     browser = browser_path()
@@ -176,7 +192,7 @@ def refresh_document() -> int:
         print(f"{RED}missing render script{RESET}")
         return 1
 
-    command = [node, str(RENDER_SCRIPT), browser, URL, str(HTML_CACHE_FILE)]
+    command = [node, str(RENDER_SCRIPT), browser, URL, str(html_cache_file)]
     try:
         result = subprocess.run(
             command,
@@ -194,7 +210,7 @@ def refresh_document() -> int:
         print(f"{RED}refresh failed{RESET}")
         return 1
 
-    document = HTML_CACHE_FILE.read_text(encoding="utf-8", errors="ignore") if HTML_CACHE_FILE.exists() else ""
+    document = html_cache_file.read_text(encoding="utf-8", errors="ignore") if html_cache_file.exists() else ""
     if result.returncode != 0 or not document.strip():
         print(f"{RED}refresh failed{RESET}")
         return 1
@@ -203,30 +219,33 @@ def refresh_document() -> int:
     if not rows:
         print(f"{RED}no scoreboard found in rendered page{RESET}")
         return 1
-    save_rows(rows)
+    save_rows(rows, entry=entry)
 
     return 0
 
 
-def load_document() -> str:
-    if not HTML_CACHE_FILE.exists():
+def load_document(entry: bool = False) -> str:
+    html_cache_file, _ = cache_files(entry)
+    if not html_cache_file.exists():
         return ""
-    return HTML_CACHE_FILE.read_text(encoding="utf-8", errors="ignore")
+    return html_cache_file.read_text(encoding="utf-8", errors="ignore")
 
 
-def save_rows(rows: list[dict]) -> None:
+def save_rows(rows: list[dict], entry: bool = False) -> None:
     raw_rows = [{"name": row["name"], "scores": row["scores"][:TOTAL_ROUNDS]} for row in rows]
-    JSON_CACHE_FILE.write_text(
+    _, json_cache_file = cache_files(entry)
+    json_cache_file.write_text(
         json.dumps({"version": CACHE_VERSION, "rows": raw_rows}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
 
-def load_json_rows() -> list[dict]:
-    if not JSON_CACHE_FILE.exists():
+def load_json_rows(entry: bool = False) -> list[dict]:
+    _, json_cache_file = cache_files(entry)
+    if not json_cache_file.exists():
         return []
     try:
-        data = json.loads(JSON_CACHE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(json_cache_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
     if not isinstance(data, dict):
@@ -322,17 +341,17 @@ def parse_rendered_rows(document: str) -> list[dict]:
     return finalize_rows(rows)
 
 
-def load_rows() -> list[dict]:
-    rows = load_json_rows()
+def load_rows(entry: bool = False) -> list[dict]:
+    rows = load_json_rows(entry=entry)
     if rows:
         return rows
 
-    document = load_document()
+    document = load_document(entry=entry)
     if not document:
         return []
     rows = parse_document_rows(document)
     if rows:
-        save_rows(rows)
+        save_rows(rows, entry=entry)
     return rows
 
 
@@ -413,11 +432,11 @@ def limit_rows(rows: list[dict], visible_rounds: int | None) -> list[dict]:
 
     limited_rows = []
     for row in rows:
-        limited_scores = [
+        masked_scores = [
             score if index < visible_rounds else None
             for index, score in enumerate(row["scores"][:TOTAL_ROUNDS])
         ]
-        limited_rows.append(build_row(row["name"], limited_scores, row.get("place")))
+        limited_rows.append(build_row(row["name"], masked_scores, row.get("source_place", row.get("place"))))
     return finalize_rows(limited_rows)
 
 
@@ -597,26 +616,12 @@ def needed_fill_score_normalized(scores: list[int | None], target_avg: float) ->
     return needed_fill_score(scores, target_avg, None, 100)
 
 
-def find_target_index(rows: list[dict], target_name: str | None) -> int | None:
-    if not rows:
-        return None
-    if not target_name:
-        return 0
-    wanted = target_name.casefold()
-    for index, row in enumerate(rows):
-        if row["name"].casefold() == wanted:
-            return index
-    return None
-
-
 def needed_values_for_rows(
-    rows: list[dict], normalized: bool, keepaverage: bool, target_name: str | None = None
-) -> list[int | None] | None:
+    rows: list[dict], normalized: bool, keepaverage: bool, target_place: int = 1
+) -> list[int | None]:
     if not rows:
         return []
-    target_index = find_target_index(rows, target_name)
-    if target_index is None:
-        return None
+    target_index = min(max(1, target_place), len(rows)) - 1
     if rows[target_index]["avg"] is None:
         return [None] * len(rows)
 
@@ -640,8 +645,19 @@ def needed_values_for_rows(
     return needed_values
 
 
-def load_display_rows(normalized: bool = False, visible_rounds: int | None = None) -> list[dict]:
-    rows = load_rows()
+def sigma_text(scores: list[int | None]) -> str:
+    valid_scores = [score for score in scores if score is not None]
+    if len(valid_scores) < 2:
+        return "~/"
+    mean = sum(valid_scores) / len(valid_scores)
+    variance = sum((score - mean) ** 2 for score in valid_scores) / len(valid_scores)
+    return f"~{round(variance ** 0.5)}"
+
+
+def load_display_rows(
+    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False
+) -> list[dict]:
+    rows = load_rows(entry=entry)
     if not rows:
         return []
     rows = limit_rows(rows, visible_rounds)
@@ -654,20 +670,22 @@ def print_scoreboard(
     normalized: bool = False,
     relative: bool = False,
     keepaverage: bool = False,
-    target_name: str | None = None,
+    entry: bool = False,
     visible_rounds: int | None = None,
+    target_place: int = 1,
 ) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if not rows:
-        if HTML_CACHE_FILE.exists():
+        html_cache_file, _ = cache_files(entry)
+        if html_cache_file.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
         return 1
 
-    max_name = max(len(row["name"]) for row in rows)
+    max_name = max(len(short_name(row["name"])) for row in rows)
     max_runs = max(TOTAL_ROUNDS, max(len(row["scores"]) for row in rows))
     visible_scores = [score for row in rows for score in row["scores"] if score is not None]
     heat_max = 100 if normalized else max(visible_scores, default=0)
@@ -676,12 +694,11 @@ def print_scoreboard(
         max((len(str(score)) for score in visible_scores), default=1),
     )
     avg_width = max(3, max((len(str(round(row["avg"]))) for row in rows if row["avg"] is not None), default=1))
-    needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_name)
-    if needed_values is None:
-        print(f"{RED}unknown target team{RESET}")
-        return 1
+    needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place)
+    target_index = min(max(1, target_place), len(rows)) - 1
 
-    for row, needed in zip(rows, needed_values):
+    for index, (row, needed) in enumerate(zip(rows, needed_values)):
+        has_visible_scores = any(score is not None for score in row["scores"])
         scores = []
         for index, score in enumerate(row["scores"]):
             if score is None:
@@ -695,10 +712,12 @@ def print_scoreboard(
         if len(scores) < max_runs:
             scores.extend(f"{DIM}{'/':>{score_width}}{RESET}" for _ in range(max_runs - len(scores)))
         score_text = " ".join(scores)
-        if relative:
+        if not has_visible_scores:
+            needed_text = "/"
+        elif relative:
             if needed is None or not row["avg"]:
                 needed_text = "/"
-            elif needed == 0:
+            elif needed == 0 and index == target_index:
                 needed_text = "0%"
             else:
                 relative_percent = round((needed / row["avg"]) * 100) - 100
@@ -706,7 +725,7 @@ def print_scoreboard(
         else:
             needed_text = "/" if needed is None else str(needed)
         needed_prefix = "" if needed_text.startswith("-") else "+"
-        if needed_text == "0%" or needed == 0:
+        if needed_text == "0%":
             needed_color = DIM
         elif needed_text == "/":
             needed_color = f"{DIM}{RED}"
@@ -714,25 +733,27 @@ def print_scoreboard(
             needed_color = f"{DIM}{GREEN}"
         else:
             needed_color = f"{DIM}{RED}"
-        avg_text = "/" if row["avg"] is None else str(round(row["avg"]))
+        avg_text = "/" if (row["avg"] is None or not has_visible_scores) else str(round(row["avg"]))
+        spread_text = sigma_text(row["scores"]) if has_visible_scores else "~/"
         print(
             f"{row['place']:>2}. "
-            f"{BOLD}{row['name']:<{max_name}}{RESET} "
+            f"{BOLD}{short_name(row['name']):<{max_name}}{RESET} "
             f"{score_text} "
             f"  "
             f"{BOLD}{avg_text:>{avg_width}}{RESET} "
-            f"({needed_color}{needed_prefix}{needed_text}{RESET})"
+            f"({needed_color}{needed_prefix}{needed_text}{RESET} {DIM}{spread_text}{RESET})"
         )
     print_end_spacing()
     return 0
 
 
-def print_bars(normalized: bool = False, visible_rounds: int | None = None) -> int:
+def print_bars(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if not rows:
-        if HTML_CACHE_FILE.exists():
+        html_cache_file, _ = cache_files(entry)
+        if html_cache_file.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
@@ -761,18 +782,19 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None) -> i
     print((" " * BAR_GAP).join(f"{row['place']:^{BAR_WIDTH}}" for row in rows))
     print()
     for row in rows:
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {row['name']}{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])}{RESET}")
 
     print_end_spacing()
     return 0
 
 
-def print_block(normalized: bool = False, visible_rounds: int | None = None) -> int:
+def print_block(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if not rows:
-        if HTML_CACHE_FILE.exists():
+        html_cache_file, _ = cache_files(entry)
+        if html_cache_file.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
@@ -815,18 +837,19 @@ def print_block(normalized: bool = False, visible_rounds: int | None = None) -> 
     print()
     for index, row in enumerate(rows):
         share = round((values[index] / total) * 100) if total > 0 else 0
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {row['name']} {share}%{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
 
     print_end_spacing()
     return 0
 
 
-def print_pie(normalized: bool = False, visible_rounds: int | None = None) -> int:
+def print_pie(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if not rows:
-        if HTML_CACHE_FILE.exists():
+        html_cache_file, _ = cache_files(entry)
+        if html_cache_file.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
@@ -869,7 +892,7 @@ def print_pie(normalized: bool = False, visible_rounds: int | None = None) -> in
     print()
     for index, row in enumerate(rows):
         share = round((values[index] / total) * 100) if total > 0 else 0
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {row['name']} {share}%{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
 
     print_end_spacing()
     return 0
@@ -877,16 +900,18 @@ def print_pie(normalized: bool = False, visible_rounds: int | None = None) -> in
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [--refresh] [--bars] [--block] [--pie] [--normalized] [--absolute] [--keepaverage] [--to NAME] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--absolute] [--assumebad] [--to N] [--animate] [--help]")
     print()
+    print("refresh     same as --refresh")
     print("--refresh   paste scoreboard, ctrl-d")
+    print("--entry     use entry list")
     print("--bars      bars")
     print("--block     30x30 share block")
     print("--pie       round share pie")
     print("--normalized normalized mode")
     print("--absolute  raw needed value")
-    print("--keepaverage leader missing runs = avg")
-    print("--to NAME   target team")
+    print("--assumebad leader missing runs = 0")
+    print("--to N      target place N")
     print("--animate   left/right, q quits")
     print("--help      this")
     print_end_spacing()
@@ -915,15 +940,17 @@ def animate_view(
     normalized: bool = False,
     relative: bool = False,
     keepaverage: bool = False,
-    target_name: str | None = None,
+    entry: bool = False,
     bars: bool = False,
     block: bool = False,
     pie: bool = False,
+    target_place: int = 1,
 ) -> int:
-    rows = load_rows()
+    rows = load_rows(entry=entry)
     if not rows:
         clear_screen()
-        if HTML_CACHE_FILE.exists():
+        html_cache_file, _ = cache_files(entry)
+        if html_cache_file.exists():
             print(f"{RED}no scoreboard found in cached page{RESET}")
             return 1
         print(f"{RED}missing score data{RESET}")
@@ -946,10 +973,12 @@ def animate_view(
                 command.append("--normalized")
             if relative:
                 command.append("--relative")
-            if keepaverage:
-                command.append("--keepaverage")
-            if target_name:
-                command.extend(["--to", target_name])
+            if not keepaverage:
+                command.append("--assumebad")
+            if entry:
+                command.append("--entry")
+            if target_place != 1:
+                command.extend(["--to", str(target_place)])
             command.extend(["--visible-rounds", str(visible_rounds)])
             subprocess.run(command, check=False)
             key = read_animation_key()
@@ -969,12 +998,14 @@ def main() -> int:
     args = sys.argv[1:]
     normalized = "--normalized" in args
     relative = "--absolute" not in args
-    keepaverage = "--keepaverage" in args
+    keepaverage = "--assumebad" not in args
     animate = "--animate" in args
+    entry = "--entry" in args
     block = "--block" in args
     pie = "--pie" in args
     visible_rounds = None
-    target_name = None
+    target_place = 1
+    refresh_alias = any(arg.casefold() == "refresh" for arg in args)
 
     if "--visible-rounds" in args:
         index = args.index("--visible-rounds")
@@ -986,38 +1017,39 @@ def main() -> int:
     if "--to" in args:
         index = args.index("--to")
         try:
-            target_name = args[index + 1]
-        except IndexError:
-            print(f"{RED}missing target team{RESET}")
+            target_place = max(1, int(args[index + 1]))
+        except (IndexError, ValueError):
+            print(f"{RED}invalid target place{RESET}")
             return 1
-
     if "--help" in args:
         return print_help()
-    if "--refresh" in args:
-        return refresh_document()
+    if "--refresh" in args or refresh_alias:
+        return refresh_document(entry=entry)
     if animate:
         return animate_view(
             normalized=normalized,
             relative=relative,
             keepaverage=keepaverage,
-            target_name=target_name,
+            entry=entry,
             bars="--bars" in args,
             block=block,
             pie=pie,
+            target_place=target_place,
         )
     if "--bars" in args:
-        return print_bars(normalized=normalized, visible_rounds=visible_rounds)
+        return print_bars(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if block:
-        return print_block(normalized=normalized, visible_rounds=visible_rounds)
+        return print_block(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
     if pie:
-        return print_pie(normalized=normalized, visible_rounds=visible_rounds)
+        return print_pie(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
 
     return print_scoreboard(
         normalized=normalized,
         relative=relative,
         keepaverage=keepaverage,
-        target_name=target_name,
+        entry=entry,
         visible_rounds=visible_rounds,
+        target_place=target_place,
     )
 
 
