@@ -42,26 +42,12 @@ BAR_GAP = 2
 BAR_FILL = "█" * BAR_WIDTH
 PIE_SIZE = 30
 TEAM_COLOR_CODES = [
-    196,
-    39,
-    220,
-    129,
-    50,
-    208,
-    84,
-    198,
-    118,
-    33,
-    190,
-    75,
-    202,
-    99,
-    214,
-    45,
-    163,
-    148,
-    51,
-    204,
+    12,
+    10,
+    11,
+    9,
+    13,
+    14,
 ]
 
 
@@ -727,6 +713,7 @@ def print_scoreboard(
         score_text = " ".join(scores)
         if not has_visible_scores:
             needed_text = "/"
+            relative_text = "/"
         elif relative:
             if needed is None or not row["avg"]:
                 needed_text = "/"
@@ -735,23 +722,31 @@ def print_scoreboard(
             else:
                 relative_percent = round((needed / row["avg"]) * 100) - 100
                 needed_text = f"{relative_percent}%"
+            relative_text = needed_text
         else:
             if row_index == target_index:
                 target_value = row["avg"] if normalized else row["raw_avg"]
                 needed_text = "/" if target_value is None else str(round(target_value))
             else:
                 needed_text = "/" if needed is None else str(needed)
+            if needed is None or not row["avg"]:
+                relative_text = "/"
+            elif needed == 0 and row_index == target_index:
+                relative_text = "0%"
+            else:
+                relative_percent = round((needed / row["avg"]) * 100) - 100
+                relative_text = f"{relative_percent}%"
         if needed_text in {"0", "0%"}:
             needed_prefix = ""
         elif needed_text.startswith("-") or needed_text == "/":
             needed_prefix = ""
         else:
             needed_prefix = "+"
-        if needed_text == "/":
+        if relative_text == "/":
             needed_color = f"{DIM}{RED}"
-        elif needed_text in {"0", "0%"}:
+        elif relative_text in {"0", "0%"}:
             needed_color = DIM
-        elif needed_text.startswith("-"):
+        elif relative_text.startswith("-"):
             needed_color = f"{DIM}{GREEN}"
         else:
             needed_color = f"{DIM}{RED}"
