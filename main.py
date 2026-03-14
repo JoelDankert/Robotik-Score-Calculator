@@ -710,15 +710,15 @@ def print_scoreboard(
     needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place)
     target_index = min(max(1, target_place), len(rows)) - 1
 
-    for index, (row, needed) in enumerate(zip(rows, needed_values)):
+    for row_index, (row, needed) in enumerate(zip(rows, needed_values)):
         has_visible_scores = any(score is not None for score in row["scores"])
         scores = []
-        for index, score in enumerate(row["scores"]):
+        for score_index, score in enumerate(row["scores"]):
             if score is None:
                 scores.append(f"{DIM}{'/':>{score_width}}{RESET}")
                 continue
             color = heat_color(score, heat_max)
-            if index in row.get("removed_indices", []):
+            if score_index in row.get("removed_indices", []):
                 scores.append(f"{color}{STRIKE}{score:>{score_width}}{RESET}")
             else:
                 scores.append(f"{color}{score:>{score_width}}{RESET}")
@@ -730,18 +730,27 @@ def print_scoreboard(
         elif relative:
             if needed is None or not row["avg"]:
                 needed_text = "/"
-            elif needed == 0 and index == target_index:
+            elif needed == 0 and row_index == target_index:
                 needed_text = "0%"
             else:
                 relative_percent = round((needed / row["avg"]) * 100) - 100
                 needed_text = f"{relative_percent}%"
         else:
-            needed_text = "/" if needed is None else str(needed)
-        needed_prefix = "" if needed_text.startswith("-") else "+"
-        if needed_text == "0%":
-            needed_color = DIM
-        elif needed_text == "/":
+            if row_index == target_index:
+                target_value = row["avg"] if normalized else row["raw_avg"]
+                needed_text = "/" if target_value is None else str(round(target_value))
+            else:
+                needed_text = "/" if needed is None else str(needed)
+        if needed_text in {"0", "0%"}:
+            needed_prefix = ""
+        elif needed_text.startswith("-") or needed_text == "/":
+            needed_prefix = ""
+        else:
+            needed_prefix = "+"
+        if needed_text == "/":
             needed_color = f"{DIM}{RED}"
+        elif needed_text in {"0", "0%"}:
+            needed_color = DIM
         elif needed_text.startswith("-"):
             needed_color = f"{DIM}{GREEN}"
         else:
