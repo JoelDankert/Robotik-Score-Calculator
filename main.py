@@ -127,9 +127,22 @@ def print_end_spacing() -> None:
 
 
 def short_name(name: str) -> str:
-    parts = [part for part in re.split(r"[^0-9A-Za-z]+", name.strip()) if part]
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name.strip())
+    parts = [part for part in re.split(r"[\s_\-+./:·]+", spaced) if part]
     if len(parts) >= 2:
-        return "".join(part[0] for part in parts)
+        return "".join(part[0] for part in parts)[:5]
+    compact = re.sub(r"[^0-9A-Za-zÄÖÜäöüß]+", "", name)
+    digit_chunks = [chunk for chunk in re.split(r"(\d+)", compact) if chunk]
+    if len(digit_chunks) >= 2:
+        short = []
+        for chunk in digit_chunks:
+            if chunk.isdigit():
+                short.append(chunk)
+            else:
+                short.append(chunk[0])
+            if len("".join(short)) >= 5:
+                break
+        return "".join(short)[:5]
     return name[:3]
 
 
