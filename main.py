@@ -42,6 +42,10 @@ BAR_WIDTH = 1
 BAR_GAP = 2
 BAR_FILL = "█" * BAR_WIDTH
 PIE_SIZE = 30
+MIN_AVG_WIDTH = 0
+MIN_ABS_WIDTH = 0
+MIN_RELATIVE_WIDTH = 0
+MIN_SPREAD_WIDTH = 0
 TEAM_COLOR_CODES = [
     12,
     10,
@@ -750,38 +754,41 @@ def print_scoreboard(
         3,
         max((len(str(score)) for score in visible_scores), default=1),
     )
-    avg_width = max(3, max((len(str(round(row["avg"]))) for row in rows if row["avg"] is not None), default=1))
     needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place)
-    abs_width = max(
-        3,
-        max((len(str(needed)) for needed in needed_values if needed is not None), default=1),
-    )
-    relative_width = max(
-        4,
-        max(
-            (
-                len(
-                    "0%"
-                    if needed == 0 and index == min(max(1, target_place), len(rows)) - 1
-                    else (
-                        "/"
-                        if needed is None or not row["avg"]
-                        else f"{round((needed / row['avg']) * 100) - 100}%"
-                    )
-                )
-                for index, (row, needed) in enumerate(zip(rows, needed_values))
-            ),
-            default=2,
-        ),
-    )
-    spread_width = max(3, max((len(sigma_text(row["scores"])) for row in rows), default=2))
     target_index = min(max(1, target_place), len(rows)) - 1
+    avg_texts = []
+    needed_texts = []
+    relative_texts = []
+    spread_texts = []
+    for row_index, (row, needed) in enumerate(zip(rows, needed_values)):
+        has_visible_scores = any(score is not None for score in row["scores"])
+        avg_texts.append("/" if (row["avg"] is None or not has_visible_scores) else str(round(row["avg"])))
+        if not has_visible_scores:
+            needed_text = "/"
+            relative_text = "/"
+        else:
+            needed_text = "/" if needed is None else str(needed)
+            if needed is None or not row["avg"]:
+                relative_text = "/"
+            elif needed == 0 and row_index == target_index:
+                relative_text = "0%"
+            else:
+                relative_percent = round((needed / row["avg"]) * 100) - 100
+                relative_text = f"{relative_percent}%"
+        needed_texts.append(needed_text)
+        relative_texts.append(relative_text)
+        spread_texts.append(sigma_text(row["scores"]) if has_visible_scores else "/")
+
+    avg_width = max(MIN_AVG_WIDTH, max((len(text) for text in avg_texts), default=0))
+    abs_width = max(MIN_ABS_WIDTH, max((len(text) for text in needed_texts), default=0))
+    relative_width = max(MIN_RELATIVE_WIDTH, max((len(text) for text in relative_texts), default=0))
+    spread_width = max(MIN_SPREAD_WIDTH, max((len(text) for text in spread_texts), default=0))
     score_headers = " ".join(f"{index:>{score_width}}" for index in range(1, max_runs + 1))
     left_pad = " " * (max_name + 4)
     print(
-        f"{left_pad}{score_headers}  "
-        f"{BOLD}{'A':>{avg_width}}{RESET}  "
-        f" {BOLD}{'B':>{abs_width}}{RESET} "
+        f" {left_pad}{score_headers}  "
+        f" {BOLD}{'A':>{avg_width}}{RESET} "
+        f"   {BOLD}{'B':>{abs_width}}{RESET} "
         f"{BOLD}{'C':>{relative_width}}{RESET} "
         f"{BOLD}{'D':>{spread_width}}{RESET}"
     )
@@ -803,18 +810,8 @@ def print_scoreboard(
         if len(scores) < max_runs:
             scores.extend(f"{DIM}{'/':>{score_width}}{RESET}" for _ in range(max_runs - len(scores)))
         score_text = " ".join(scores)
-        if not has_visible_scores:
-            needed_text = "/"
-            relative_text = "/"
-        else:
-            needed_text = "/" if needed is None else str(needed)
-            if needed is None or not row["avg"]:
-                relative_text = "/"
-            elif needed == 0 and row_index == target_index:
-                relative_text = "0%"
-            else:
-                relative_percent = round((needed / row["avg"]) * 100) - 100
-                relative_text = f"{relative_percent}%"
+        needed_text = needed_texts[row_index]
+        relative_text = relative_texts[row_index]
         if relative_text == "/":
             needed_color = f"{DIM}{RED}"
         elif relative_text in {"0", "0%"}:
@@ -823,16 +820,20 @@ def print_scoreboard(
             needed_color = f"{DIM}{GREEN}"
         else:
             needed_color = f"{DIM}{RED}"
-        avg_text = "/" if (row["avg"] is None or not has_visible_scores) else str(round(row["avg"]))
-        spread_text = sigma_text(row["scores"]) if has_visible_scores else "~/"
+        avg_text = avg_texts[row_index]
+        spread_text = spread_texts[row_index]
+        stats_text = (
+            f"{needed_text:>{abs_width}} "
+            f"{relative_text:>{relative_width}} "
+            f"{spread_text:>{spread_width}}"
+        )
         print(
             f"{row['place']:>2}. "
             f"{BOLD}{short_name(row['name']):<{max_name}}{RESET} "
             f"{score_text} "
             f"  "
             f"{BOLD}{avg_text:>{avg_width}}{RESET} "
-            f"  {needed_color}({needed_text:>{abs_width}} {relative_text:>{relative_width}} {RESET}"
-            f"{DIM}{spread_text:>{spread_width}}{RESET}{needed_color}){RESET}"
+            f"  {needed_color}({stats_text}){RESET}"
         )
     score_kind = "normalized " if normalized else ""
     target_assumption = "keep their raw average" if keepaverage else "fail all runs fully"
