@@ -1008,7 +1008,6 @@ def print_help() -> int:
     clear_screen()
     print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--assumebad] [--to N] [--animate] [--help]")
     print()
-    print("refresh     same as --refresh")
     print("--refresh   paste scoreboard, ctrl-d")
     print("--entry     use entry list")
     print("--bars      bars")
