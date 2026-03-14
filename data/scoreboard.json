@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "rows": [
     {
       "name": "RRR Kabelmüsli",
@@ -14,18 +14,7 @@
         575,
         null,
         null
-      ],
-      "removed": [
-        320,
-        395
-      ],
-      "removed_indices": [
-        1,
-        0
-      ],
-      "avg": 522.5,
-      "raw_avg": 481.25,
-      "place": 1
+      ]
     },
     {
       "name": "Bodensee Dogs",
@@ -40,18 +29,7 @@
         475,
         null,
         null
-      ],
-      "removed": [
-        85,
-        280
-      ],
-      "removed_indices": [
-        2,
-        5
-      ],
-      "avg": 455.0,
-      "raw_avg": 386.875,
-      "place": 2
+      ]
     },
     {
       "name": "Bodensee Beavers",
@@ -66,18 +44,7 @@
         290,
         null,
         null
-      ],
-      "removed": [
-        100,
-        265
-      ],
-      "removed_indices": [
-        2,
-        1
-      ],
-      "avg": 325.0,
-      "raw_avg": 289.375,
-      "place": 3
+      ]
     },
     {
       "name": "photon",
@@ -92,18 +59,7 @@
         100,
         null,
         null
-      ],
-      "removed": [
-        85,
-        100
-      ],
-      "removed_indices": [
-        4,
-        6
-      ],
-      "avg": 294.1666666666667,
-      "raw_avg": 243.75,
-      "place": 4
+      ]
     },
     {
       "name": "Theseus",
@@ -118,18 +74,7 @@
         305,
         null,
         null
-      ],
-      "removed": [
-        95,
-        120
-      ],
-      "removed_indices": [
-        3,
-        0
-      ],
-      "avg": 253.33333333333334,
-      "raw_avg": 216.875,
-      "place": 5
+      ]
     },
     {
       "name": "WvSG_Wall·E",
@@ -144,18 +89,7 @@
         245,
         null,
         null
-      ],
-      "removed": [
-        140,
-        190
-      ],
-      "removed_indices": [
-        5,
-        3
-      ],
-      "avg": 251.66666666666666,
-      "raw_avg": 230.0,
-      "place": 6
+      ]
     },
     {
       "name": "Skarlax",
@@ -170,18 +104,7 @@
         185,
         null,
         null
-      ],
-      "removed": [
-        15,
-        50
-      ],
-      "removed_indices": [
-        1,
-        0
-      ],
-      "avg": 134.16666666666666,
-      "raw_avg": 108.75,
-      "place": 7
+      ]
     },
     {
       "name": "anagroM_ataF",
@@ -196,18 +119,7 @@
         15,
         null,
         null
-      ],
-      "removed": [
-        10,
-        15
-      ],
-      "removed_indices": [
-        1,
-        7
-      ],
-      "avg": 85.83333333333333,
-      "raw_avg": 67.5,
-      "place": 8
+      ]
     },
     {
       "name": "TTC Demo",
@@ -222,18 +134,7 @@
         80,
         null,
         null
-      ],
-      "removed": [
-        35,
-        45
-      ],
-      "removed_indices": [
-        3,
-        4
-      ],
-      "avg": 70.0,
-      "raw_avg": 62.5,
-      "place": 9
+      ]
     },
     {
       "name": "robOtter",
@@ -248,18 +149,7 @@
         110,
         null,
         null
-      ],
-      "removed": [
-        10,
-        30
-      ],
-      "removed_indices": [
-        5,
-        1
-      ],
-      "avg": 66.66666666666667,
-      "raw_avg": 55.0,
-      "place": 10
+      ]
     },
     {
       "name": "Käpt'n Balu",
@@ -274,18 +164,7 @@
         55,
         null,
         null
-      ],
-      "removed": [
-        30,
-        35
-      ],
-      "removed_indices": [
-        5,
-        4
-      ],
-      "avg": 59.166666666666664,
-      "raw_avg": 52.5,
-      "place": 11
+      ]
     },
     {
       "name": "Try-Tanic",
@@ -300,18 +179,7 @@
         50,
         null,
         null
-      ],
-      "removed": [
-        15,
-        15
-      ],
-      "removed_indices": [
-        1,
-        2
-      ],
-      "avg": 59.166666666666664,
-      "raw_avg": 48.125,
-      "place": 12
+      ]
     },
     {
       "name": "2legit2quit",
@@ -326,18 +194,7 @@
         70,
         null,
         null
-      ],
-      "removed": [
-        10,
-        15
-      ],
-      "removed_indices": [
-        2,
-        1
-      ],
-      "avg": 52.5,
-      "raw_avg": 42.5,
-      "place": 13
+      ]
     },
     {
       "name": "Ich muss überlegen",
@@ -352,18 +209,7 @@
         15,
         null,
         null
-      ],
-      "removed": [
-        10,
-        15
-      ],
-      "removed_indices": [
-        2,
-        7
-      ],
-      "avg": 42.5,
-      "raw_avg": 35.0,
-      "place": 14
+      ]
     },
     {
       "name": "i-bots 8",
@@ -378,18 +224,7 @@
         80,
         null,
         null
-      ],
-      "removed": [
-        0,
-        10
-      ],
-      "removed_indices": [
-        0,
-        2
-      ],
-      "avg": 41.666666666666664,
-      "raw_avg": 32.5,
-      "place": 15
+      ]
     },
     {
       "name": "DBG-Maze",
@@ -404,18 +239,7 @@
         10,
         null,
         null
-      ],
-      "removed": [
-        10,
-        10
-      ],
-      "removed_indices": [
-        1,
-        5
-      ],
-      "avg": 24.166666666666668,
-      "raw_avg": 20.625,
-      "place": 16
+      ]
     },
     {
       "name": "Ctrl+Alt+Defeat",
@@ -430,18 +254,7 @@
         20,
         null,
         null
-      ],
-      "removed": [
-        0,
-        0
-      ],
-      "removed_indices": [
-        0,
-        2
-      ],
-      "avg": 17.5,
-      "raw_avg": 13.125,
-      "place": 17
+      ]
     }
   ]
 }
