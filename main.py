@@ -778,6 +778,8 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None, entr
 
     max_avg = max((row["avg"] or 0) for row in rows)
     color_map = team_color_map(rows)
+    values = [max(0.0, row["avg"] or 0.0) for row in rows]
+    total = sum(values)
     heights = []
     colors = []
     for row in rows:
@@ -799,8 +801,9 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None, entr
     print(f"{DIM}{(' ' * BAR_GAP).join('▀' * BAR_WIDTH for _ in rows)}{RESET}")
     print((" " * BAR_GAP).join(f"{row['place']:^{BAR_WIDTH}}" for row in rows))
     print()
-    for row in rows:
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])}{RESET}")
+    for index, row in enumerate(rows):
+        share = round((values[index] / total) * 100) if total > 0 else 0
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
 
     print_end_spacing()
     return 0
