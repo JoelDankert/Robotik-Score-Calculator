@@ -279,7 +279,7 @@ def save_rows(rows: list[dict], entry: bool = False) -> None:
     )
 
 
-def load_json_rows(entry: bool = False) -> list[dict]:
+def load_json_rows(entry: bool = False, use_strikes: bool = True) -> list[dict]:
     _, json_cache_file = cache_files(entry)
     if not json_cache_file.exists():
         return []
@@ -312,11 +312,19 @@ def load_json_rows(entry: bool = False) -> list[dict]:
                     unsure_indices.append(index)
         except (KeyError, TypeError, ValueError):
             continue
-        rows.append(build_row(name, scores, unsure_indices=unsure_indices, rounds_count=rounds_limit(entry)))
+        rows.append(
+            build_row(
+                name,
+                scores,
+                unsure_indices=unsure_indices,
+                rounds_count=rounds_limit(entry),
+                use_strikes=use_strikes,
+            )
+        )
     return finalize_rows(rows)
 
 
-def parse_rendered_rows(document: str, entry: bool = False) -> list[dict]:
+def parse_rendered_rows(document: str, entry: bool = False, use_strikes: bool = True) -> list[dict]:
     parser = TableParser()
     parser.feed(document)
 
@@ -367,41 +375,26 @@ def parse_rendered_rows(document: str, entry: bool = False) -> list[dict]:
         if len(valid_scores) < 3:
             continue
 
-        removed_indices = strike_indices(scores)
-        removed = [scores[index] for index in removed_indices if scores[index] is not None]
-        kept = [score for index, score in enumerate(scores) if score is not None and index not in removed_indices]
-        avg = sum(kept) / len(kept)
-        raw_avg = sum(valid_scores) / len(valid_scores)
-
-        rows.append(
-            {
-                "name": team_name,
-                "scores": scores,
-                "removed": removed,
-                "removed_indices": removed_indices,
-                "avg": avg,
-                "raw_avg": raw_avg,
-            }
-        )
+        rows.append(build_row(team_name, scores, rounds_count=total_rounds, use_strikes=use_strikes))
 
     return finalize_rows(rows)
 
 
-def load_rows(entry: bool = False) -> list[dict]:
-    rows = load_json_rows(entry=entry)
+def load_rows(entry: bool = False, use_strikes: bool = True) -> list[dict]:
+    rows = load_json_rows(entry=entry, use_strikes=use_strikes)
     if rows:
         return rows
 
     document = load_document(entry=entry)
     if not document:
         return []
-    rows = parse_document_rows(document, entry=entry)
+    rows = parse_document_rows(document, entry=entry, use_strikes=use_strikes)
     if rows:
         save_rows(rows, entry=entry)
     return rows
 
 
-def normalize_rows(rows: list[dict], rounds_count: int = TOTAL_ROUNDS) -> list[dict]:
+def normalize_rows(rows: list[dict], rounds_count: int = TOTAL_ROUNDS, use_strikes: bool = True) -> list[dict]:
     if not rows:
         return []
 
@@ -431,6 +424,7 @@ def normalize_rows(rows: list[dict], rounds_count: int = TOTAL_ROUNDS) -> list[d
                 row.get("source_place", row.get("place")),
                 row.get("unsure_indices", []),
                 rounds_count=rounds_count,
+                use_strikes=use_strikes,
             )
         )
 
@@ -457,6 +451,7 @@ def build_row(
     source_place: int | None = None,
     unsure_indices: list[int] | None = None,
     rounds_count: int = TOTAL_ROUNDS,
+    use_strikes: bool = True,
 ) -> dict:
     padded_scores = scores[:rounds_count]
     if len(padded_scores) < rounds_count:
@@ -469,7 +464,7 @@ def build_row(
     raw_avg = (sum(valid_scores) / len(valid_scores)) if valid_scores else None
 
     if len(valid_scores) >= 1:
-        removed_indices = strike_indices(padded_scores)
+        removed_indices = strike_indices(padded_scores) if use_strikes else []
         removed = [padded_scores[index] for index in removed_indices if padded_scores[index] is not None]
         kept = [score for index, score in enumerate(padded_scores) if score is not None and index not in removed_indices]
         avg = sum(kept) / len(kept) if kept else None
@@ -490,7 +485,12 @@ def build_row(
     }
 
 
-def limit_rows(rows: list[dict], visible_rounds: int | None, rounds_count: int = TOTAL_ROUNDS) -> list[dict]:
+def limit_rows(
+    rows: list[dict],
+    visible_rounds: int | None,
+    rounds_count: int = TOTAL_ROUNDS,
+    use_strikes: bool = True,
+) -> list[dict]:
     if visible_rounds is None:
         return rows
 
@@ -507,19 +507,20 @@ def limit_rows(rows: list[dict], visible_rounds: int | None, rounds_count: int =
                 row.get("source_place", row.get("place")),
                 [index for index in row.get("unsure_indices", []) if index < visible_rounds],
                 rounds_count=rounds_count,
+                use_strikes=use_strikes,
             )
         )
     return finalize_rows(limited_rows)
 
 
-def parse_document_rows(document: str, entry: bool = False) -> list[dict]:
-    rows = parse_rendered_rows(document, entry=entry)
+def parse_document_rows(document: str, entry: bool = False, use_strikes: bool = True) -> list[dict]:
+    rows = parse_rendered_rows(document, entry=entry, use_strikes=use_strikes)
     if rows:
         return rows
-    return parse_pasted_rows(document, entry=entry)
+    return parse_pasted_rows(document, entry=entry, use_strikes=use_strikes)
 
 
-def parse_pasted_rows(document: str, entry: bool = False) -> list[dict]:
+def parse_pasted_rows(document: str, entry: bool = False, use_strikes: bool = True) -> list[dict]:
     lines = [line.strip() for line in document.splitlines()]
     rows = []
     i = 0
@@ -569,7 +570,7 @@ def parse_pasted_rows(document: str, entry: bool = False) -> list[dict]:
         scores_text = " ".join(score_parts)
         scores = [int(value) for value in re.findall(r"(\d+)\s*\([^)]*\)", scores_text)]
         if len(scores) >= 3:
-            rows.append(build_row(team_name, scores, rounds_count=rounds_limit(entry)))
+            rows.append(build_row(team_name, scores, rounds_count=rounds_limit(entry), use_strikes=use_strikes))
 
         if total_line:
             i += 1
@@ -636,13 +637,17 @@ def column_best_scores(rows: list[dict], rounds_count: int = TOTAL_ROUNDS) -> li
 
 
 def projected_avg(
-    scores: list[int | None], fill_score: float, removed_indices: list[int] | None = None, rounds_count: int = TOTAL_ROUNDS
+    scores: list[int | None],
+    fill_score: float,
+    removed_indices: list[int] | None = None,
+    rounds_count: int = TOTAL_ROUNDS,
+    use_strikes: bool = True,
 ) -> float:
     completed = [score if score is not None else fill_score for score in scores[:rounds_count]]
     if len(completed) < rounds_count:
         completed.extend([fill_score] * (rounds_count - len(completed)))
     if removed_indices is None:
-        removed_indices = strike_indices(completed)
+        removed_indices = strike_indices(completed) if use_strikes else []
     kept = [score for index, score in enumerate(completed) if index not in removed_indices]
     return sum(kept) / len(kept)
 
@@ -653,23 +658,24 @@ def needed_fill_score(
     removed_indices: list[int] | None = None,
     max_fill: int | None = None,
     rounds_count: int = TOTAL_ROUNDS,
+    use_strikes: bool = True,
 ) -> int | None:
     missing = sum(1 for score in scores[:rounds_count] if score is None)
     if missing == 0:
-        return 0 if projected_avg(scores, 0, removed_indices, rounds_count) >= target_avg else None
+        return 0 if projected_avg(scores, 0, removed_indices, rounds_count, use_strikes) >= target_avg else None
 
-    if projected_avg(scores, 0, removed_indices, rounds_count) >= target_avg:
+    if projected_avg(scores, 0, removed_indices, rounds_count, use_strikes) >= target_avg:
         return 0
 
     if max_fill is not None:
-        if projected_avg(scores, max_fill, removed_indices, rounds_count) < target_avg:
+        if projected_avg(scores, max_fill, removed_indices, rounds_count, use_strikes) < target_avg:
             return None
         high = max_fill
     else:
         high = 1
-        while projected_avg(scores, high, removed_indices, rounds_count) < target_avg and high < 100000:
+        while projected_avg(scores, high, removed_indices, rounds_count, use_strikes) < target_avg and high < 100000:
             high *= 2
-        if projected_avg(scores, high, removed_indices, rounds_count) < target_avg:
+        if projected_avg(scores, high, removed_indices, rounds_count, use_strikes) < target_avg:
             return None
 
     if high <= 0:
@@ -678,19 +684,26 @@ def needed_fill_score(
     low = 0
     while low + 1 < high:
         mid = (low + high) // 2
-        if projected_avg(scores, mid, removed_indices, rounds_count) >= target_avg:
+        if projected_avg(scores, mid, removed_indices, rounds_count, use_strikes) >= target_avg:
             high = mid
         else:
             low = mid
     return high
 
 
-def needed_fill_score_normalized(scores: list[int | None], target_avg: float, rounds_count: int = TOTAL_ROUNDS) -> int | None:
-    return needed_fill_score(scores, target_avg, None, 100, rounds_count)
+def needed_fill_score_normalized(
+    scores: list[int | None], target_avg: float, rounds_count: int = TOTAL_ROUNDS, use_strikes: bool = True
+) -> int | None:
+    return needed_fill_score(scores, target_avg, None, 100, rounds_count, use_strikes)
 
 
 def needed_values_for_rows(
-    rows: list[dict], normalized: bool, keepaverage: bool, target_place: int = 1, rounds_count: int = TOTAL_ROUNDS
+    rows: list[dict],
+    normalized: bool,
+    keepaverage: bool,
+    target_place: int = 1,
+    rounds_count: int = TOTAL_ROUNDS,
+    use_strikes: bool = True,
 ) -> list[int | None]:
     if not rows:
         return []
@@ -701,20 +714,20 @@ def needed_values_for_rows(
     target_fill = rows[target_index]["raw_avg"] if keepaverage else 0
     if target_fill is None:
         target_fill = 0
-    target_avg = projected_avg(rows[target_index]["scores"], target_fill, rounds_count=rounds_count)
+    target_avg = projected_avg(rows[target_index]["scores"], target_fill, rounds_count=rounds_count, use_strikes=use_strikes)
     needed_values = []
     if normalized:
         for index, row in enumerate(rows):
             if index == target_index:
                 needed_values.append(0)
             else:
-                needed_values.append(needed_fill_score_normalized(row["scores"], target_avg, rounds_count))
+                needed_values.append(needed_fill_score_normalized(row["scores"], target_avg, rounds_count, use_strikes))
         return needed_values
     for index, row in enumerate(rows):
         if index == target_index:
             needed_values.append(0)
         else:
-            needed_values.append(needed_fill_score(row["scores"], target_avg, rounds_count=rounds_count))
+            needed_values.append(needed_fill_score(row["scores"], target_avg, rounds_count=rounds_count, use_strikes=use_strikes))
     return needed_values
 
 
@@ -723,20 +736,23 @@ def sigma_text(scores: list[int | None]) -> str:
     if len(valid_scores) < 2:
         return "~/"
     mean = sum(valid_scores) / len(valid_scores)
+    if mean == 0:
+        return "~/"
     variance = sum((score - mean) ** 2 for score in valid_scores) / len(valid_scores)
-    return f"~{round(variance ** 0.5)}"
+    cv = (variance ** 0.5) / mean
+    return f"~{round(cv * 100)}%"
 
 
 def load_display_rows(
-    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False
+    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
 ) -> list[dict]:
     total_rounds = rounds_limit(entry)
-    rows = load_rows(entry=entry)
+    rows = load_rows(entry=entry, use_strikes=use_strikes)
     if not rows:
         return []
-    rows = limit_rows(rows, visible_rounds, total_rounds)
+    rows = limit_rows(rows, visible_rounds, total_rounds, use_strikes)
     if normalized:
-        rows = normalize_rows(rows, total_rounds)
+        rows = normalize_rows(rows, total_rounds, use_strikes)
     return rows
 
 
@@ -748,11 +764,13 @@ def print_scoreboard(
     target_place: int = 1,
     show_sum: bool = False,
     show_relative: bool = False,
+    use_strikes: bool = True,
+    final_mode: bool = False,
 ) -> int:
     clear_screen()
     total_rounds = rounds_limit(entry)
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if not rows:
         html_cache_file, _ = cache_files(entry)
         if html_cache_file.exists():
@@ -769,10 +787,14 @@ def print_scoreboard(
         3,
         max((len(str(score)) for score in visible_scores), default=1),
     )
-    needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place, total_rounds)
+    needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place, total_rounds, use_strikes)
     target_index = min(max(1, target_place), len(rows)) - 1
     max_avg = max((row["avg"] or 0) for row in rows)
     max_score_count = max((sum(1 for score in row["scores"] if score is not None) for row in rows), default=0)
+    has_score_gaps = any(
+        any(score is None for score in row["scores"][: max((index + 1 for index, score in enumerate(row["scores"]) if score is not None), default=0)])
+        for row in rows
+    )
     avg_texts = []
     needed_texts = []
     relative_texts = []
@@ -807,18 +829,25 @@ def print_scoreboard(
         spread_texts.append(sigma_text(row["scores"]) if has_visible_scores else "/")
 
     avg_width = max(MIN_AVG_WIDTH, max((len(text) for text in avg_texts), default=0))
+    spread_width = max(MIN_SPREAD_WIDTH, max((len(text) for text in spread_texts), default=0))
     abs_width = max(MIN_ABS_WIDTH, max((len(text) for text in needed_texts), default=0))
     relative_width = max(MIN_RELATIVE_WIDTH, max((len(text) for text in relative_texts), default=0))
-    spread_width = max(MIN_SPREAD_WIDTH, max((len(text) for text in spread_texts), default=0))
     score_headers = " ".join(f"{index:>{score_width}}" for index in range(1, max_runs + 1))
     left_pad = " " * (max_name + 4)
-    print(
-        f" {left_pad}{score_headers}  "
-        f" {BOLD}{'A':>{avg_width}}{RESET} "
-        f"   {BOLD}{'B':>{abs_width}}{RESET} "
-        f"{BOLD}{'C':>{relative_width}}{RESET} "
-        f"{BOLD}{'D':>{spread_width}}{RESET}"
-    )
+    if final_mode:
+        print(
+            f" {left_pad}{score_headers}  "
+            f" {BOLD}{'A':>{avg_width}}{RESET} "
+            f"   {BOLD}{'B':>{spread_width}}{RESET}"
+        )
+    else:
+        print(
+            f" {left_pad}{score_headers}  "
+            f" {BOLD}{'A':>{avg_width}}{RESET} "
+            f"   {BOLD}{'B':>{abs_width}}{RESET} "
+            f"{BOLD}{'C':>{relative_width}}{RESET} "
+            f"{BOLD}{'D':>{spread_width}}{RESET}"
+        )
     print()
 
     for row_index, (row, needed) in enumerate(zip(rows, needed_values)):
@@ -850,9 +879,9 @@ def print_scoreboard(
         avg_text = avg_texts[row_index]
         spread_text = spread_texts[row_index]
         stats_text = (
-            f"{needed_text:>{abs_width}} "
-            f"{relative_text:>{relative_width}} "
             f"{spread_text:>{spread_width}}"
+            if final_mode
+            else f"{needed_text:>{abs_width}} {relative_text:>{relative_width}} {spread_text:>{spread_width}}"
         )
         print(
             f"{row['place']:>2}. "
@@ -866,25 +895,32 @@ def print_scoreboard(
     target_assumption = "keep their raw average" if keepaverage else "fail all runs fully"
     print()
     if show_sum:
-        print(f"{BOLD}A{RESET} - predicted sum")
+        print(f"{BOLD}A{RESET} - {'predicted sum of scores' if has_score_gaps else 'sum of scores'}")
     elif show_relative:
-        print(f"{BOLD}A{RESET} - average as percent of max average")
-    else:
+        print(f"{BOLD}A{RESET} - percentage of maximum final score")
+    elif use_strikes:
         print(f"{BOLD}A{RESET} - current average with strikes")
-    print(
-        f"{BOLD}B{RESET} - needed {score_kind}scores to place {target_place} "
-        f"if they {target_assumption}"
-    )
-    print(f"{BOLD}C{RESET} - relative needed improvement from raw average")
-    print(f"{BOLD}D{RESET} - score spread")
+    else:
+        print(f"{BOLD}A{RESET} - current average without strikes")
+    if final_mode:
+        print(f"{BOLD}B{RESET} - coefficient of variation")
+    else:
+        print(
+            f"{BOLD}B{RESET} - needed {score_kind}scores to place {target_place} "
+            f"if they {target_assumption}"
+        )
+        print(f"{BOLD}C{RESET} - relative needed improvement from raw average")
+        print(f"{BOLD}D{RESET} - coefficient of variation")
     print_end_spacing()
     return 0
 
 
-def print_bars(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
+def print_bars(
+    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if not rows:
         html_cache_file, _ = cache_files(entry)
         if html_cache_file.exists():
@@ -926,10 +962,12 @@ def print_bars(normalized: bool = False, visible_rounds: int | None = None, entr
     return 0
 
 
-def print_block(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
+def print_block(
+    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if not rows:
         html_cache_file, _ = cache_files(entry)
         if html_cache_file.exists():
@@ -981,10 +1019,12 @@ def print_block(normalized: bool = False, visible_rounds: int | None = None, ent
     return 0
 
 
-def print_pie(normalized: bool = False, visible_rounds: int | None = None, entry: bool = False) -> int:
+def print_pie(
+    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+) -> int:
     clear_screen()
 
-    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+    rows = load_display_rows(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if not rows:
         html_cache_file, _ = cache_files(entry)
         if html_cache_file.exists():
@@ -1038,7 +1078,7 @@ def print_pie(normalized: bool = False, visible_rounds: int | None = None, entry
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("--refresh   paste scoreboard, ctrl-d")
     print("--entry     use entry list")
@@ -1047,7 +1087,9 @@ def print_help() -> int:
     print("--pie       round share pie")
     print("--normalized normalized mode")
     print("--sum       show predicted sum in A")
-    print("--relative  show avg as % of max avg in A")
+    print("--relative  show % of maximum final score in A")
+    print("--nostrike  disable strike removal everywhere")
+    print("--final     show only coefficient of variation as trailing column")
     print("--assumebad leader missing runs = 0")
     print("--to N      target place N")
     print("--animate   left/right, q quits")
@@ -1084,9 +1126,11 @@ def animate_view(
     target_place: int = 1,
     show_sum: bool = False,
     show_relative: bool = False,
+    use_strikes: bool = True,
+    final_mode: bool = False,
 ) -> int:
     total_rounds = rounds_limit(entry)
-    rows = load_rows(entry=entry)
+    rows = load_rows(entry=entry, use_strikes=use_strikes)
     if not rows:
         clear_screen()
         html_cache_file, _ = cache_files(entry)
@@ -1115,6 +1159,10 @@ def animate_view(
                 command.append("--sum")
             if show_relative:
                 command.append("--relative")
+            if not use_strikes:
+                command.append("--nostrike")
+            if final_mode:
+                command.append("--final")
             if not keepaverage:
                 command.append("--assumebad")
             if entry:
@@ -1141,6 +1189,8 @@ def main() -> int:
     normalized = "--normalized" in args
     show_sum = "--sum" in args
     show_relative = "--relative" in args
+    use_strikes = "--nostrike" not in args
+    final_mode = "--final" in args
     keepaverage = "--assumebad" not in args
     animate = "--animate" in args
     entry = "--entry" in args
@@ -1180,13 +1230,15 @@ def main() -> int:
             target_place=target_place,
             show_sum=show_sum,
             show_relative=show_relative,
+            use_strikes=use_strikes,
+            final_mode=final_mode,
         )
     if "--bars" in args:
-        return print_bars(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+        return print_bars(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if block:
-        return print_block(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+        return print_block(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
     if pie:
-        return print_pie(normalized=normalized, visible_rounds=visible_rounds, entry=entry)
+        return print_pie(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
 
     return print_scoreboard(
         normalized=normalized,
@@ -1196,6 +1248,8 @@ def main() -> int:
         target_place=target_place,
         show_sum=show_sum,
         show_relative=show_relative,
+        use_strikes=use_strikes,
+        final_mode=final_mode,
     )
 
 
