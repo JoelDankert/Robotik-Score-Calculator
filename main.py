@@ -142,6 +142,10 @@ def short_name(name: str) -> str:
     return name[:3]
 
 
+def display_name(name: str, fullname: bool = False) -> str:
+    return name if fullname else short_name(name)
+
+
 def cache_files(entry: bool = False) -> tuple[Path, Path]:
     if entry:
         return ENTRY_HTML_CACHE_FILE, ENTRY_JSON_CACHE_FILE
@@ -766,6 +770,7 @@ def print_scoreboard(
     show_relative: bool = False,
     use_strikes: bool = True,
     final_mode: bool = False,
+    fullname: bool = False,
 ) -> int:
     clear_screen()
     total_rounds = rounds_limit(entry)
@@ -779,7 +784,7 @@ def print_scoreboard(
         print(f"{RED}missing score data{RESET}")
         return 1
 
-    max_name = max(len(short_name(row["name"])) for row in rows)
+    max_name = max(len(display_name(row["name"], fullname)) for row in rows)
     max_runs = max(total_rounds, max(len(row["scores"]) for row in rows))
     visible_scores = [score for row in rows for score in row["scores"] if score is not None]
     heat_max = 100 if normalized else max(visible_scores, default=0)
@@ -885,7 +890,7 @@ def print_scoreboard(
         )
         print(
             f"{row['place']:>2}. "
-            f"{BOLD}{short_name(row['name']):<{max_name}}{RESET} "
+            f"{BOLD}{display_name(row['name'], fullname):<{max_name}}{RESET} "
             f"{score_text} "
             f"  "
             f"{BOLD}{avg_text:>{avg_width}}{RESET} "
@@ -916,7 +921,11 @@ def print_scoreboard(
 
 
 def print_bars(
-    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+    normalized: bool = False,
+    visible_rounds: int | None = None,
+    entry: bool = False,
+    use_strikes: bool = True,
+    fullname: bool = False,
 ) -> int:
     clear_screen()
 
@@ -956,14 +965,18 @@ def print_bars(
     print()
     for index, row in enumerate(rows):
         share = round((values[index] / total) * 100) if total > 0 else 0
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {display_name(row['name'], fullname)} {share}%{RESET}")
 
     print_end_spacing()
     return 0
 
 
 def print_block(
-    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+    normalized: bool = False,
+    visible_rounds: int | None = None,
+    entry: bool = False,
+    use_strikes: bool = True,
+    fullname: bool = False,
 ) -> int:
     clear_screen()
 
@@ -1013,14 +1026,18 @@ def print_block(
     print()
     for index, row in enumerate(rows):
         share = round((values[index] / total) * 100) if total > 0 else 0
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {display_name(row['name'], fullname)} {share}%{RESET}")
 
     print_end_spacing()
     return 0
 
 
 def print_pie(
-    normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
+    normalized: bool = False,
+    visible_rounds: int | None = None,
+    entry: bool = False,
+    use_strikes: bool = True,
+    fullname: bool = False,
 ) -> int:
     clear_screen()
 
@@ -1070,7 +1087,7 @@ def print_pie(
     print()
     for index, row in enumerate(rows):
         share = round((values[index] / total) * 100) if total > 0 else 0
-        print(f"{team_color(color_map[row['name']])}{row['place']}. {short_name(row['name'])} {share}%{RESET}")
+        print(f"{team_color(color_map[row['name']])}{row['place']}. {display_name(row['name'], fullname)} {share}%{RESET}")
 
     print_end_spacing()
     return 0
@@ -1078,7 +1095,7 @@ def print_pie(
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--fullname] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("--refresh   paste scoreboard, ctrl-d")
     print("--entry     use entry list")
@@ -1090,6 +1107,7 @@ def print_help() -> int:
     print("--relative  show % of maximum final score in A")
     print("--nostrike  disable strike removal everywhere")
     print("--final     show only coefficient of variation as trailing column")
+    print("--fullname  show full team names")
     print("--assumebad leader missing runs = 0")
     print("--to N      target place N")
     print("--animate   left/right, q quits")
@@ -1128,6 +1146,7 @@ def animate_view(
     show_relative: bool = False,
     use_strikes: bool = True,
     final_mode: bool = False,
+    fullname: bool = False,
 ) -> int:
     total_rounds = rounds_limit(entry)
     rows = load_rows(entry=entry, use_strikes=use_strikes)
@@ -1163,6 +1182,8 @@ def animate_view(
                 command.append("--nostrike")
             if final_mode:
                 command.append("--final")
+            if fullname:
+                command.append("--fullname")
             if not keepaverage:
                 command.append("--assumebad")
             if entry:
@@ -1191,6 +1212,7 @@ def main() -> int:
     show_relative = "--relative" in args
     use_strikes = "--nostrike" not in args
     final_mode = "--final" in args
+    fullname = "--fullname" in args
     keepaverage = "--assumebad" not in args
     animate = "--animate" in args
     entry = "--entry" in args
@@ -1232,13 +1254,32 @@ def main() -> int:
             show_relative=show_relative,
             use_strikes=use_strikes,
             final_mode=final_mode,
+            fullname=fullname,
         )
     if "--bars" in args:
-        return print_bars(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
+        return print_bars(
+            normalized=normalized,
+            visible_rounds=visible_rounds,
+            entry=entry,
+            use_strikes=use_strikes,
+            fullname=fullname,
+        )
     if block:
-        return print_block(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
+        return print_block(
+            normalized=normalized,
+            visible_rounds=visible_rounds,
+            entry=entry,
+            use_strikes=use_strikes,
+            fullname=fullname,
+        )
     if pie:
-        return print_pie(normalized=normalized, visible_rounds=visible_rounds, entry=entry, use_strikes=use_strikes)
+        return print_pie(
+            normalized=normalized,
+            visible_rounds=visible_rounds,
+            entry=entry,
+            use_strikes=use_strikes,
+            fullname=fullname,
+        )
 
     return print_scoreboard(
         normalized=normalized,
@@ -1250,6 +1291,7 @@ def main() -> int:
         show_relative=show_relative,
         use_strikes=use_strikes,
         final_mode=final_mode,
+        fullname=fullname,
     )
 
 
