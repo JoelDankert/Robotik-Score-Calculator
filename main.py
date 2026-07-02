@@ -237,11 +237,52 @@ def refresh_document(entry: bool = False) -> int:
     return 0
 
 
+def import_pdf_document(pdf_path: Path, entry: bool = False, use_strikes: bool = True) -> int:
+    clear_screen()
+    if not pdf_path.exists() or not pdf_path.is_file():
+        print(f"{RED}pdf not found{RESET}")
+        return 1
+
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    html_cache_file, _ = cache_files(entry)
+    text = extract_pdf_text(pdf_path)
+    if not text.strip():
+        print(f"{RED}pdf text extraction failed{RESET}")
+        return 1
+
+    rows = parse_pdf_rows(text, entry=entry, use_strikes=use_strikes)
+    if not rows:
+        print(f"{RED}could not parse scoreboard from pdf{RESET}")
+        return 1
+
+    html_cache_file.write_text(text, encoding="utf-8")
+    save_rows(rows, entry=entry)
+    return 0
+
+
 def load_document(entry: bool = False) -> str:
     html_cache_file, _ = cache_files(entry)
     if not html_cache_file.exists():
         return ""
     return html_cache_file.read_text(encoding="utf-8", errors="ignore")
+
+
+def extract_pdf_text(pdf_path: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["pdftotext", "-layout", str(pdf_path), "-"],
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout
 
 
 def parse_json_score(value: object) -> tuple[int | None, bool]:
@@ -524,6 +565,44 @@ def parse_document_rows(document: str, entry: bool = False, use_strikes: bool = 
     return parse_pasted_rows(document, entry=entry, use_strikes=use_strikes)
 
 
+def parse_pdf_rows(document: str, entry: bool = False, use_strikes: bool = True) -> list[dict]:
+    rows = []
+    total_rounds = rounds_limit(entry)
+    for raw_line in document.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.match(r"^(\d+)\s+([A-Za-z]\S*)\s+(.+?)\s+(\d+(?::\d+)+)$", line)
+        if not match:
+            continue
+        tokens = match.group(3).split()
+        if len(tokens) < 4:
+            continue
+        if re.fullmatch(r"\d+(?:\.\d+)?", tokens[-1]):
+            tokens = tokens[:-1]
+        if len(tokens) < 2:
+            continue
+        score_tokens = tokens[::2]
+        scores: list[int | None] = []
+        for token in score_tokens[:total_rounds]:
+            if re.fullmatch(r"-?\d+", token):
+                scores.append(int(token))
+            else:
+                scores.append(None)
+        if len([score for score in scores if score is not None]) < 1:
+            continue
+        rows.append(
+            build_row(
+                match.group(2),
+                scores,
+                source_place=int(match.group(1)),
+                rounds_count=total_rounds,
+                use_strikes=use_strikes,
+            )
+        )
+    return finalize_rows(rows)
+
+
 def parse_pasted_rows(document: str, entry: bool = False, use_strikes: bool = True) -> list[dict]:
     lines = [line.strip() for line in document.splitlines()]
     rows = []
@@ -613,7 +692,7 @@ def worst_two_indices(scores: list[int | None]) -> list[int]:
 
 def strike_count(scores: list[int | None]) -> int:
     valid_count = sum(1 for score in scores if score is not None)
-    return min(valid_count, int((valid_count * 0.2) + 0.5))
+    return min(valid_count, int((valid_count * 0.13) + 0.5))
 
 
 def strike_indices(scores: list[int | None]) -> list[int]:
@@ -1095,9 +1174,10 @@ def print_pie(
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--fullname] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--pdf FILE] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--fullname] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("--refresh   paste scoreboard, ctrl-d")
+    print("--pdf FILE  import local score pdf")
     print("--entry     use entry list")
     print("--bars      bars")
     print("--block     30x30 share block")
@@ -1147,6 +1227,7 @@ def animate_view(
     use_strikes: bool = True,
     final_mode: bool = False,
     fullname: bool = False,
+    pdf_path: str | None = None,
 ) -> int:
     total_rounds = rounds_limit(entry)
     rows = load_rows(entry=entry, use_strikes=use_strikes)
@@ -1184,6 +1265,8 @@ def animate_view(
                 command.append("--final")
             if fullname:
                 command.append("--fullname")
+            if pdf_path:
+                command.extend(["--pdf", pdf_path])
             if not keepaverage:
                 command.append("--assumebad")
             if entry:
@@ -1222,6 +1305,15 @@ def main() -> int:
     target_place = 1
     refresh_alias = any(arg.casefold() == "refresh" for arg in args)
     total_rounds = rounds_limit(entry)
+    pdf_path = None
+
+    if "--pdf" in args:
+        index = args.index("--pdf")
+        try:
+            pdf_path = args[index + 1]
+        except IndexError:
+            print(f"{RED}missing pdf path{RESET}")
+            return 1
 
     if "--visible-rounds" in args:
         index = args.index("--visible-rounds")
@@ -1239,6 +1331,8 @@ def main() -> int:
             return 1
     if "--help" in args:
         return print_help()
+    if pdf_path is not None:
+        return import_pdf_document(Path(pdf_path), entry=entry, use_strikes=use_strikes)
     if "--refresh" in args or refresh_alias:
         return refresh_document(entry=entry)
     if animate:
@@ -1255,6 +1349,7 @@ def main() -> int:
             use_strikes=use_strikes,
             final_mode=final_mode,
             fullname=fullname,
+            pdf_path=pdf_path,
         )
     if "--bars" in args:
         return print_bars(

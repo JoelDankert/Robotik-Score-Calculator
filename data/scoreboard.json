@@ -2,258 +2,468 @@
   "version": 3,
   "rows": [
     {
-      "name": "RRR Kabelmüsli",
+      "name": "M70",
       "scores": [
-        395,
-        320,
-        450,
         455,
-        640,
-        555,
-        460,
-        575,
-        525,
-        445
-      ]
-    },
-    {
-      "name": "Bodensee Dogs",
-      "scores": [
-        380,
-        560,
-        85,
-        355,
-        410,
-        280,
-        550,
-        475,
-        285,
-        100
-      ]
-    },
-    {
-      "name": "Bodensee Beavers",
-      "scores": [
-        325,
-        265,
-        100,
-        320,
-        290,
-        275,
-        450,
-        290,
-        380,
-        430
-      ]
-    },
-    {
-      "name": "photon",
-      "scores": [
-        380,
-        295,
-        315,
-        315,
-        85,
-        360,
-        100,
-        100,
-        200,
-        140
-      ]
-    },
-    {
-      "name": "WvSG_Wall·E",
-      "scores": [
-        215,
-        240,
-        320,
-        190,
-        260,
-        140,
-        230,
-        245,
-        165,
-        125
-      ]
-    },
-    {
-      "name": "Theseus",
-      "scores": [
-        120,
-        205,
-        160,
-        95,
-        395,
-        205,
-        250,
-        305,
-        135,
-        80
-      ]
-    },
-    {
-      "name": "Skarlax",
-      "scores": [
-        50,
-        15,
-        95,
-        190,
-        55,
-        70,
-        210,
-        185,
         0,
-        55
+        645,
+        625,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "anagroM_ataF",
+      "name": "M51",
+      "scores": [
+        405,
+        725,
+        490,
+        300,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M60",
+      "scores": [
+        530,
+        485,
+        0,
+        550,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M43",
+      "scores": [
+        400,
+        485,
+        465,
+        345,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M58",
+      "scores": [
+        440,
+        390,
+        485,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M44",
+      "scores": [
+        275,
+        240,
+        390,
+        445,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M65",
+      "scores": [
+        380,
+        320,
+        350,
+        230,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M42",
+      "scores": [
+        240,
+        545,
+        230,
+        235,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M49",
+      "scores": [
+        330,
+        355,
+        330,
+        160,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M53",
       "scores": [
         90,
-        10,
-        95,
-        60,
-        95,
-        20,
-        155,
-        15,
-        120,
-        30
+        295,
+        230,
+        365,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "TTC Demo",
+      "name": "M64",
       "scores": [
-        60,
-        60,
-        85,
-        35,
-        45,
-        70,
-        65,
-        80,
-        25,
-        45
+        190,
+        305,
+        340,
+        145,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "Käpt'n Balu",
+      "name": "M62",
+      "scores": [
+        90,
+        220,
+        260,
+        245,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M57",
       "scores": [
         65,
-        40,
-        85,
-        45,
-        35,
+        50,
+        150,
+        165,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M63",
+      "scores": [
+        65,
         30,
-        65,
-        55,
+        145,
+        150,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M56",
+      "scores": [
         75,
-        65
-      ]
-    },
-    {
-      "name": "robOtter",
-      "scores": [
-        35,
-        30,
-        40,
-        95,
-        40,
-        10,
-        80,
-        110,
-        50,
-        15
-      ]
-    },
-    {
-      "name": "Try-Tanic",
-      "scores": [
-        85,
-        15,
-        15,
-        95,
-        50,
-        30,
-        45,
-        50,
-        20,
-        15
-      ]
-    },
-    {
-      "name": "2legit2quit",
-      "scores": [
-        95,
-        15,
-        10,
-        30,
-        40,
-        40,
-        40,
         70,
+        10,
+        135,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M50",
+      "scores": [
         50,
-        25
+        105,
+        35,
+        60,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "Ich muss überlegen",
+      "name": "M69",
       "scores": [
-        80,
-        45,
-        10,
+        20,
         55,
-        25,
-        25,
-        25,
-        15,
-        95,
-        15
+        0,
+        105,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "i-bots 8",
+      "name": "M52",
       "scores": [
-        0,
-        15,
-        10,
         20,
-        20,
-        40,
-        75,
+        35,
         80,
-        30,
-        25
+        55,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "DBG-Maze",
+      "name": "M46",
       "scores": [
-        30,
-        10,
-        25,
-        30,
-        25,
-        10,
-        25,
-        10,
-        20,
-        15
+        40,
+        50,
+        45,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {
-      "name": "Ctrl+Alt+Defeat",
+      "name": "M61",
       "scores": [
         0,
+        50,
+        65,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M71",
+      "scores": [
+        0,
+        40,
+        35,
+        20,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M67",
+      "scores": [
+        20,
+        30,
+        20,
+        15,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M48",
+      "scores": [
         15,
         0,
+        55,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M55",
+      "scores": [
+        5,
+        0,
+        40,
         10,
-        25,
-        15,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M66",
+      "scores": [
+        10,
+        0,
+        10,
+        10,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M59",
+      "scores": [
+        0,
+        0,
         20,
-        20,
-        25,
-        10
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M45",
+      "scores": [
+        10,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M68",
+      "scores": [
+        10,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M54",
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M47",
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "M41",
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     }
   ]
