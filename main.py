@@ -25,6 +25,7 @@ HTML_CACHE_FILE = CACHE_DIR / "robocup_page.html"
 JSON_CACHE_FILE = CACHE_DIR / "scoreboard.json"
 ENTRY_HTML_CACHE_FILE = CACHE_DIR / "robocup_entry_page.html"
 ENTRY_JSON_CACHE_FILE = CACHE_DIR / "scoreboard_entry.json"
+TDP_SCORES_FILE = CACHE_DIR / "tdp_scores.json"
 RENDER_SCRIPT = Path("render_dom.mjs")
 CACHE_VERSION = 3
 
@@ -36,7 +37,7 @@ GREEN = "\033[32m"
 UNDERLINE = "\033[4m"
 STRIKE = "\033[9m"
 
-TOTAL_ROUNDS = 10
+TOTAL_ROUNDS = 8
 ENTRY_TOTAL_ROUNDS = 7
 BAR_HEIGHT = 12
 BAR_WIDTH = 1
@@ -55,6 +56,14 @@ TEAM_COLOR_CODES = [
     13,
     14,
 ]
+EXCLUDED_TEAM_CODES = {"M60"}
+RUNS_FINAL_WEIGHT = 0.6
+TDP_FINAL_WEIGHT = 0.2
+CHALLENGE_WEIGHT = 0.2
+TDP_WEIGHT = 0.6
+POSTER_WEIGHT = 0.2
+VIDEO_WEIGHT = 0.2
+TDP_SCORES = json.loads(TDP_SCORES_FILE.read_text())
 
 
 def rounds_limit(entry: bool = False) -> int:
@@ -826,11 +835,58 @@ def sigma_text(scores: list[int | None]) -> str:
     return f"~{round(cv * 100)}%"
 
 
+def format_normalized_score(value: float | None, precision: int = 2) -> str:
+    if value is None:
+        return "/"
+    return f"{value:.{precision}f}"
+
+
+def attach_tdp_scores(rows: list[dict], normalized_rows: list[dict]) -> list[dict]:
+    normalized_avg_by_name = {
+        row["name"]: ((row["avg"] / 100) if row["avg"] is not None else None)
+        for row in normalized_rows
+    }
+    enriched_rows = []
+    for row in rows:
+        enriched_row = dict(row)
+        tdp_scores = TDP_SCORES.get(row["name"])
+        maze_score = normalized_avg_by_name.get(row["name"])
+        judging_score = (
+            (tdp_scores["tdp"] * TDP_WEIGHT + tdp_scores["poster"] * POSTER_WEIGHT + tdp_scores["video"] * VIDEO_WEIGHT)
+            if tdp_scores else None
+        )
+        challenge = tdp_scores["challenge"] if tdp_scores else None
+        if maze_score is not None and judging_score is not None:
+            final_score = (maze_score * RUNS_FINAL_WEIGHT) + (judging_score * TDP_FINAL_WEIGHT) + ((challenge or 0) * CHALLENGE_WEIGHT)
+        elif maze_score is not None:
+            final_score = maze_score
+        else:
+            final_score = None
+        enriched_row["maze_normalized"] = maze_score
+        enriched_row["tdp_scores"] = tdp_scores
+        enriched_row["final_score"] = final_score
+        enriched_rows.append(enriched_row)
+
+    enriched_rows.sort(
+        key=lambda row: (
+            -(row["final_score"] if row["final_score"] is not None else -1),
+            -(row["avg"] if row["avg"] is not None else -1),
+            row["name"].lower(),
+        )
+    )
+    for index, row in enumerate(enriched_rows, start=1):
+        row["place"] = index
+    return enriched_rows
+
+
 def load_display_rows(
     normalized: bool = False, visible_rounds: int | None = None, entry: bool = False, use_strikes: bool = True
 ) -> list[dict]:
     total_rounds = rounds_limit(entry)
     rows = load_rows(entry=entry, use_strikes=use_strikes)
+    if not rows:
+        return []
+    rows = [row for row in rows if row["name"] not in EXCLUDED_TEAM_CODES]
     if not rows:
         return []
     rows = limit_rows(rows, visible_rounds, total_rounds, use_strikes)
@@ -850,6 +906,7 @@ def print_scoreboard(
     use_strikes: bool = True,
     final_mode: bool = False,
     fullname: bool = False,
+    show_tdp: bool = False,
 ) -> int:
     clear_screen()
     total_rounds = rounds_limit(entry)
@@ -862,6 +919,16 @@ def print_scoreboard(
             return 1
         print(f"{RED}missing score data{RESET}")
         return 1
+    if show_tdp:
+        normalized_rows = rows if normalized else load_display_rows(
+            normalized=True,
+            visible_rounds=visible_rounds,
+            entry=entry,
+            use_strikes=use_strikes,
+        )
+        rows = attach_tdp_scores(rows, normalized_rows)
+    for index, row in enumerate(rows, start=1):
+        row["place"] = index
 
     max_name = max(len(display_name(row["name"], fullname)) for row in rows)
     max_runs = max(total_rounds, max(len(row["scores"]) for row in rows))
@@ -874,6 +941,7 @@ def print_scoreboard(
     needed_values = needed_values_for_rows(rows, normalized, keepaverage, target_place, total_rounds, use_strikes)
     target_index = min(max(1, target_place), len(rows)) - 1
     max_avg = max((row["avg"] or 0) for row in rows)
+    max_final_score = max((row.get("final_score") or 0) for row in rows) if show_tdp else 0
     max_score_count = max((sum(1 for score in row["scores"] if score is not None) for row in rows), default=0)
     has_score_gaps = any(
         any(score is None for score in row["scores"][: max((index + 1 for index, score in enumerate(row["scores"]) if score is not None), default=0)])
@@ -885,7 +953,16 @@ def print_scoreboard(
     spread_texts = []
     for row_index, (row, needed) in enumerate(zip(rows, needed_values)):
         has_visible_scores = any(score is not None for score in row["scores"])
-        if row["avg"] is None or not has_visible_scores:
+        if show_tdp and show_relative:
+            final_score = row.get("final_score")
+            if final_score is None:
+                avg_texts.append("/")
+            else:
+                relative_final = ((final_score / max_final_score) * 100) if max_final_score > 0 else 0
+                avg_texts.append(f"{round(relative_final)}%")
+        elif show_tdp:
+            avg_texts.append(format_normalized_score(row.get("final_score"), precision=5 if final_mode else 2))
+        elif row["avg"] is None or not has_visible_scores:
             avg_texts.append("/")
         elif show_sum:
             strike_count = len(row.get("removed_indices", []))
@@ -895,7 +972,7 @@ def print_scoreboard(
             relative_avg = ((row["avg"] / max_avg) * 100) if max_avg > 0 else 0
             avg_texts.append(f"{round(relative_avg)}%")
         else:
-            avg_texts.append(str(round(row["avg"])))
+            avg_texts.append(f"{row['avg']:.5f}" if final_mode else str(round(row["avg"])))
         if not has_visible_scores:
             needed_text = "/"
             relative_text = "/"
@@ -903,7 +980,7 @@ def print_scoreboard(
             needed_text = "/" if needed is None else str(needed)
             if needed is None or not row["avg"]:
                 relative_text = "/"
-            elif needed == 0 and row_index == target_index:
+            elif needed == 0:
                 relative_text = "0%"
             else:
                 relative_percent = round((needed / row["avg"]) * 100) - 100
@@ -978,7 +1055,11 @@ def print_scoreboard(
     score_kind = "normalized " if normalized else ""
     target_assumption = "keep their raw average" if keepaverage else "fail all runs fully"
     print()
-    if show_sum:
+    if show_tdp and show_relative:
+        print(f"{BOLD}A{RESET} - percentage of best weighted final score")
+    elif show_tdp:
+        print(f"{BOLD}A{RESET} - weighted final score ({round(RUNS_FINAL_WEIGHT * 100)}% runs + {round(TDP_FINAL_WEIGHT * 100)}% judging)")
+    elif show_sum:
         print(f"{BOLD}A{RESET} - {'predicted sum of scores' if has_score_gaps else 'sum of scores'}")
     elif show_relative:
         print(f"{BOLD}A{RESET} - percentage of maximum final score")
@@ -995,6 +1076,8 @@ def print_scoreboard(
         )
         print(f"{BOLD}C{RESET} - relative needed improvement from raw average")
         print(f"{BOLD}D{RESET} - coefficient of variation")
+    if show_tdp:
+        print(f"{DIM}judging uses the provided Total Score Normalized column; remaining 20% ignored{RESET}")
     print_end_spacing()
     return 0
 
@@ -1174,7 +1257,7 @@ def print_pie(
 
 def print_help() -> int:
     clear_screen()
-    print("python3 main.py [refresh] [--refresh] [--pdf FILE] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--fullname] [--assumebad] [--to N] [--animate] [--help]")
+    print("python3 main.py [refresh] [--refresh] [--pdf FILE] [--entry] [--bars] [--block] [--pie] [--normalized] [--sum] [--relative] [--nostrike] [--final] [--fullname] [--tdp] [--assumebad] [--to N] [--animate] [--help]")
     print()
     print("--refresh   paste scoreboard, ctrl-d")
     print("--pdf FILE  import local score pdf")
@@ -1188,6 +1271,7 @@ def print_help() -> int:
     print("--nostrike  disable strike removal everywhere")
     print("--final     show only coefficient of variation as trailing column")
     print("--fullname  show full team names")
+    print("--tdp       include 20% judging weight with separate judging row")
     print("--assumebad leader missing runs = 0")
     print("--to N      target place N")
     print("--animate   left/right, q quits")
@@ -1227,6 +1311,7 @@ def animate_view(
     use_strikes: bool = True,
     final_mode: bool = False,
     fullname: bool = False,
+    show_tdp: bool = False,
     pdf_path: str | None = None,
 ) -> int:
     total_rounds = rounds_limit(entry)
@@ -1265,6 +1350,8 @@ def animate_view(
                 command.append("--final")
             if fullname:
                 command.append("--fullname")
+            if show_tdp:
+                command.append("--tdp")
             if pdf_path:
                 command.extend(["--pdf", pdf_path])
             if not keepaverage:
@@ -1296,6 +1383,7 @@ def main() -> int:
     use_strikes = "--nostrike" not in args
     final_mode = "--final" in args
     fullname = "--fullname" in args
+    show_tdp = "--tdp" in args
     keepaverage = "--assumebad" not in args
     animate = "--animate" in args
     entry = "--entry" in args
@@ -1349,6 +1437,7 @@ def main() -> int:
             use_strikes=use_strikes,
             final_mode=final_mode,
             fullname=fullname,
+            show_tdp=show_tdp,
             pdf_path=pdf_path,
         )
     if "--bars" in args:
@@ -1387,6 +1476,7 @@ def main() -> int:
         use_strikes=use_strikes,
         final_mode=final_mode,
         fullname=fullname,
+        show_tdp=show_tdp,
     )
 
 

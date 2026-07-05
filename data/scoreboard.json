@@ -2,48 +2,29 @@
   "version": 3,
   "rows": [
     {
+      "name": "M60",
+      "scores": [
+        530,
+        485,
+        0,
+        555,
+        705,
+        685,
+        370,
+        415
+      ]
+    },
+    {
       "name": "M70",
       "scores": [
         455,
         0,
         645,
         625,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M51",
-      "scores": [
-        405,
-        725,
-        490,
-        300,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M60",
-      "scores": [
-        530,
-        485,
-        0,
-        550,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        665,
+        460,
+        280,
+        560
       ]
     },
     {
@@ -53,12 +34,23 @@
         485,
         465,
         345,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        815,
+        320,
+        140,
+        645
+      ]
+    },
+    {
+      "name": "M51",
+      "scores": [
+        405,
+        725,
+        490,
+        300,
+        685,
+        445,
+        125,
+        270
       ]
     },
     {
@@ -68,12 +60,10 @@
         390,
         485,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        715,
+        605,
+        195,
+        445
       ]
     },
     {
@@ -83,27 +73,10 @@
         240,
         390,
         445,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M65",
-      "scores": [
-        380,
-        320,
-        350,
-        230,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        435,
+        430,
+        100,
+        400
       ]
     },
     {
@@ -113,12 +86,23 @@
         545,
         230,
         235,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        550,
+        370,
+        380,
+        5
+      ]
+    },
+    {
+      "name": "M65",
+      "scores": [
+        380,
+        320,
+        350,
+        230,
+        620,
+        305,
+        0,
+        95
       ]
     },
     {
@@ -128,27 +112,10 @@
         355,
         330,
         160,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M53",
-      "scores": [
-        90,
-        295,
-        230,
-        365,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        510,
+        340,
+        150,
+        150
       ]
     },
     {
@@ -158,12 +125,23 @@
         305,
         340,
         145,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        315,
+        235,
+        115,
+        155
+      ]
+    },
+    {
+      "name": "M53",
+      "scores": [
+        90,
+        295,
+        230,
+        365,
+        335,
+        70,
+        95,
+        190
       ]
     },
     {
@@ -173,12 +151,10 @@
         220,
         260,
         245,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        0,
+        295,
+        150,
+        130
       ]
     },
     {
@@ -188,12 +164,10 @@
         50,
         150,
         165,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        210,
+        270,
+        110,
+        280
       ]
     },
     {
@@ -203,12 +177,10 @@
         30,
         145,
         150,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        225,
+        250,
+        115,
+        195
       ]
     },
     {
@@ -218,27 +190,10 @@
         70,
         10,
         135,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M50",
-      "scores": [
-        50,
-        105,
-        35,
-        60,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        225,
+        150,
+        25,
+        245
       ]
     },
     {
@@ -248,27 +203,10 @@
         55,
         0,
         105,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M52",
-      "scores": [
-        20,
-        35,
+        40,
         80,
-        55,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        95,
+        55
       ]
     },
     {
@@ -278,42 +216,23 @@
         50,
         45,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        120,
+        55,
+        75,
+        45
       ]
     },
     {
-      "name": "M61",
+      "name": "M50",
       "scores": [
-        0,
         50,
-        65,
-        0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M71",
-      "scores": [
-        0,
-        40,
+        105,
         35,
-        20,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        60,
+        35,
+        40,
+        40,
+        5
       ]
     },
     {
@@ -323,42 +242,49 @@
         30,
         20,
         15,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        120,
+        30,
+        35,
+        45
       ]
     },
     {
-      "name": "M48",
+      "name": "M61",
       "scores": [
-        15,
         0,
+        50,
+        65,
+        0,
+        65,
+        45,
+        20,
+        45
+      ]
+    },
+    {
+      "name": "M52",
+      "scores": [
+        20,
+        35,
+        80,
         55,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        50,
+        20,
+        15
       ]
     },
     {
-      "name": "M55",
+      "name": "M71",
       "scores": [
-        5,
         0,
         40,
-        10,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        35,
+        20,
+        0,
+        65,
+        40,
+        55
       ]
     },
     {
@@ -368,12 +294,23 @@
         0,
         10,
         10,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        0,
+        75,
+        30,
+        80
+      ]
+    },
+    {
+      "name": "M55",
+      "scores": [
+        5,
+        0,
+        40,
+        10,
+        0,
+        20,
+        75,
+        25
       ]
     },
     {
@@ -383,12 +320,10 @@
         0,
         20,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        30,
+        0,
+        15,
+        110
       ]
     },
     {
@@ -398,12 +333,10 @@
         0,
         0,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        60,
+        40,
+        30,
+        25
       ]
     },
     {
@@ -413,42 +346,23 @@
         0,
         0,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        0,
+        40,
+        35,
+        70
       ]
     },
     {
-      "name": "M54",
+      "name": "M48",
       "scores": [
+        15,
+        0,
+        55,
         0,
         0,
-        0,
-        0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-      ]
-    },
-    {
-      "name": "M47",
-      "scores": [
-        0,
-        0,
-        0,
-        0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        40,
+        30,
+        5
       ]
     },
     {
@@ -458,12 +372,36 @@
         0,
         0,
         0,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        0,
+        70,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "M54",
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "M47",
+      "scores": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
       ]
     }
   ]
